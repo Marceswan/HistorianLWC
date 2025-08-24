@@ -11,7 +11,18 @@ public with sharing class MdapiUtil {
         MetadataService.MetadataPort service = new MetadataService.MetadataPort();
         service.endpoint_x = metadataEndpoint();
         service.SessionHeader = new MetadataService.SessionHeader_element();
-        service.SessionHeader.sessionId = UserInfo.getSessionId();
+        
+        // Get session ID - in Lightning context this often fails
+        String sessionId = UserInfo.getSessionId();
+        System.debug('Retrieved session ID length: ' + (sessionId != null ? sessionId.length() : 'null'));
+        
+        // Check if this looks like a Lightning "gack" session (invalid for API)
+        if (sessionId != null && sessionId.startsWith('00D') && sessionId.length() < 50) {
+            System.debug('Detected potential Lightning frontend session - this may not work for Metadata API');
+            // For now, we'll still try it but provide a better error message
+        }
+        
+        service.SessionHeader.sessionId = sessionId;
         return service;
     }
     

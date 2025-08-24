@@ -193,7 +193,13 @@ public with sharing class FlowDeploymentService {
         } catch (Exception e) {
             System.debug('Exception during direct Flow deployment: ' + e.getMessage());
             System.debug('Exception stack trace: ' + e.getStackTraceString());
-            throw new AuraHandledException('Flow deployment error: ' + e.getMessage());
+            
+            // Provide specific guidance for session issues
+            if (e.getMessage().contains('INVALID_SESSION_ID')) {
+                throw new AuraHandledException('Flow deployment failed due to session authentication issue. This commonly occurs in Lightning Experience where UserInfo.getSessionId() returns a frontend session that\'s invalid for SOAP API calls. Please try running this from Developer Console or consider using a Connected App with OAuth for API authentication.');
+            } else {
+                throw new AuraHandledException('Flow deployment error: ' + e.getMessage());
+            }
         }
     }
     
