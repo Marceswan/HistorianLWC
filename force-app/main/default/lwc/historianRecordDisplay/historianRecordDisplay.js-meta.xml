@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>61.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <objects>
+                <object>Account</object>
+                <object>Contact</object>
+                <object>Opportunity</object>
+                <object>Lead</object>
+                <object>Case</object>
+                <object>Contract</object>
+                <object>Order</object>
+                <object>Product2</object>
+                <object>Pricebook2</object>
+                <object>Campaign</object>
+                <object>Event</object>
+                <object>Task</object>
+                <object>User</object>
+                <object>Asset</object>
+                <object>Solution</object>
+            </objects>
+            <property name="recordId" type="String" default="{!recordId}"/>
+            <property name="objectApiName" type="String" default="{!objectApiName}"/>
+        </targetConfig>
+    </targetConfigs>
+    <masterLabel>Historian Record Display</masterLabel>
+    <description>Displays historian records for a record using configured display styles (Timeline, Datatable, Compact Cards)</description>
+</LightningComponentBundle>

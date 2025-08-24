@@ -1,0 +1,57 @@
+/* Timeline Enhancements */
+.slds-timeline__icon_container {
+    background-color: var(--slds-c-icon-color-background, #ffffff);
+    border: 2px solid var(--slds-c-timeline-icon-color-border, #dddbda);
+    border-radius: 50%;
+    padding: 0.25rem;
+}
+
+.slds-timeline__item_call .slds-timeline__icon_container {
+    border-color: var(--slds-c-timeline-icon-color-border-success, #04844b);
+}
+
+.slds-timeline__text {
+    margin-bottom: 0.5rem;
+}
+
+/* Compact Cards Enhancements */
+.slds-card_boundary {
+    border: 1px solid var(--slds-c-card-color-border, #dddbda);
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.10);
+    transition: box-shadow 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.slds-card_boundary:hover {
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.12);
+}
+
+.slds-card__footer {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--slds-c-card-color-border, #dddbda);
+}
+
+/* Loading and Empty States */
+.slds-illustration_small {
+    padding: 2rem 1rem;
+}
+
+/* Responsive Grid for Compact Cards */
+@media (max-width: 48em) {
+    .slds-large-size_1-of-3 {
+        width: 100%;
+    }
+}
+
+@media (min-width: 48em) and (max-width: 64em) {
+    .slds-large-size_1-of-3 {
+        width: 50%;
+    }
+}
+
+/* Datatable container */
+lightning-datatable {
+    border: 1px solid var(--slds-c-card-color-border, #dddbda);
+    border-radius: 0.25rem;
+}

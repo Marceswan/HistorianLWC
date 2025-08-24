@@ -177,7 +177,7 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
 
     private void createHistorianTrigger(MetadataService.MetadataPort service) {
         String triggerName = objectApi + 'HistorianTrigger';
-        System.debug('Creating Apex Trigger: ' + triggerName);
+        System.debug('Creating/Updating Apex Trigger: ' + triggerName);
         
         try {
             // Check if trigger already exists
@@ -185,8 +185,10 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
             Boolean triggerExists = (triggerReadResult != null && triggerReadResult.getRecords() != null && triggerReadResult.getRecords().size() > 0);
             
             if (triggerExists) {
-                System.debug('Trigger already exists: ' + triggerName);
-                return;
+                System.debug('Trigger exists, updating with current configuration: ' + triggerName);
+                // Continue with deployment to update the trigger with current field configuration
+            } else {
+                System.debug('Creating new trigger: ' + triggerName);
             }
             
             // Create the trigger body template
@@ -224,50 +226,9 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
     }
 
     private String buildTriggerBody(String triggerName) {
-        String triggerBody = 'trigger ' + triggerName + ' on ' + objectApi + ' (before update, after update) {\n';
-        triggerBody += '    // Auto-generated trigger for Historian tracking\n';
-        triggerBody += '    \n';
-        triggerBody += '    // Only process after update events for historian tracking\n';
-        triggerBody += '    if (Trigger.isAfter && Trigger.isUpdate) {\n';
-        triggerBody += '        try {\n';
-        triggerBody += '            // Query the Historian Config metadata for this object\n';
-        triggerBody += '            String objectApiName = \'' + objectApi + '\';\n';
-        triggerBody += '            List<Historian_Config__mdt> configs = [\n';
-        triggerBody += '                SELECT Id, DeveloperName, Object_API_Name__c, Track_All_Fields__c, \n';
-        triggerBody += '                       Fields_to_Track__c, Active__c, Record_Types__c\n';
-        triggerBody += '                FROM Historian_Config__mdt \n';
-        triggerBody += '                WHERE Object_API_Name__c = :objectApiName \n';
-        triggerBody += '                  AND Active__c = true\n';
-        triggerBody += '                LIMIT 1\n';
-        triggerBody += '            ];\n';
-        triggerBody += '            \n';
-        triggerBody += '            if (!configs.isEmpty()) {\n';
-        triggerBody += '                Historian_Config__mdt config = configs[0];\n';
-        triggerBody += '                \n';
-        triggerBody += '                // Prepare data for HistorianChangeService\n';
-        triggerBody += '                Map<Id, SObject> oldMap = new Map<Id, SObject>();\n';
-        triggerBody += '                Map<Id, SObject> newMap = new Map<Id, SObject>();\n';
-        triggerBody += '                \n';
-        triggerBody += '                for (SObject oldRecord : Trigger.old) {\n';
-        triggerBody += '                    oldMap.put(oldRecord.Id, oldRecord);\n';
-        triggerBody += '                }\n';
-        triggerBody += '                \n';
-        triggerBody += '                for (SObject newRecord : Trigger.new) {\n';
-        triggerBody += '                    newMap.put(newRecord.Id, newRecord);\n';
-        triggerBody += '                }\n';
-        triggerBody += '                \n';
-        triggerBody += '                // Call HistorianChangeService to create historian records\n';
-        triggerBody += '                HistorianChangeService.createHistorianRecords(\n';
-        triggerBody += '                    config.DeveloperName,\n';
-        triggerBody += '                    oldMap,\n';
-        triggerBody += '                    newMap\n';
-        triggerBody += '                );\n';
-        triggerBody += '            }\n';
-        triggerBody += '        } catch (Exception e) {\n';
-        triggerBody += '            System.debug(\'Error in ' + triggerName + ': \' + e.getMessage());\n';
-        triggerBody += '            // Log error but don\'t fail the transaction\n';
-        triggerBody += '        }\n';
-        triggerBody += '    }\n';
+        String triggerBody = 'trigger ' + triggerName + ' on ' + objectApi + ' (after update) {\n';
+        triggerBody += '    // Auto-generated lightweight historian trigger - Updated: ' + System.now().format() + '\n';
+        triggerBody += '    HistorianTriggerHandler.handleAfterUpdate(\'' + objectApi + '\', Trigger.old, Trigger.new);\n';
         triggerBody += '}\n';
         
         return triggerBody;

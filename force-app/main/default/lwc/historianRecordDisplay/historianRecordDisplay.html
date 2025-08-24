@@ -1,0 +1,149 @@
+<template>
+    <lightning-card title={cardTitle} icon-name="utility:clock">
+        <div class="slds-p-around_medium">
+            <!-- Loading State -->
+            <template if:true={loading}>
+                <div class="slds-text-align_center">
+                    <lightning-spinner alternative-text="Loading history..." size="small"></lightning-spinner>
+                    <div class="slds-m-top_small">
+                        <span class="slds-text-body_small">Loading history records...</span>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Error State -->
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error" role="alert">
+                    <div class="slds-media">
+                        <div class="slds-media__figure">
+                            <lightning-icon icon-name="utility:error" size="small" variant="error"></lightning-icon>
+                        </div>
+                        <div class="slds-media__body">
+                            <h2 class="slds-text-heading_small">
+                                Error Loading History
+                            </h2>
+                            <p class="slds-text-body_regular">{error}</p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- No Records State -->
+            <template if:false={loading}>
+                <template if:false={error}>
+                    <template if:false={hasRecords}>
+                        <div class="slds-illustration slds-illustration_small">
+                            <div class="slds-text-align_center">
+                                <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
+                                <h3 class="slds-text-heading_medium slds-m-bottom_small">No History Available</h3>
+                                <p class="slds-text-body_regular slds-text-color_weak">
+                                    {noRecordsMessage}
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+            </template>
+
+            <!-- Timeline Style -->
+            <template if:true={isTimelineStyle}>
+                <template if:true={hasRecords}>
+                    <div class="slds-timeline">
+                        <template for:each={timelineItems} for:item="item">
+                            <div key={item.id} class="slds-timeline__item_expandable slds-timeline__item_call">
+                                <span class="slds-assistive-text">Task</span>
+                                <div class="slds-media">
+                                    <div class="slds-media__figure">
+                                        <div class="slds-timeline__icon">
+                                            <div class="slds-timeline__icon_container">
+                                                <lightning-icon icon-name={item.iconName} 
+                                                               size="x-small" 
+                                                               variant={item.iconVariant}>
+                                                </lightning-icon>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="slds-media__body">
+                                        <div class="slds-media slds-media_timeline slds-timeline__media_call">
+                                            <div class="slds-media__body">
+                                                <h3 class="slds-timeline__title">
+                                                    <strong>{item.fieldName}</strong>
+                                                </h3>
+                                                <p class="slds-timeline__text">
+                                                    <template if:true={item.oldValue}>
+                                                        Changed from <strong>{item.oldValue}</strong> to <strong>{item.newValue}</strong>
+                                                    </template>
+                                                    <template if:false={item.oldValue}>
+                                                        Set to <strong>{item.newValue}</strong>
+                                                    </template>
+                                                </p>
+                                                <h3 class="slds-timeline__date">
+                                                    <span class="slds-text-body_small slds-text-color_weak">
+                                                        {item.formattedDate} by {item.createdByName}
+                                                    </span>
+                                                </h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </template>
+
+            <!-- Datatable Style -->
+            <template if:true={isDatatableStyle}>
+                <template if:true={hasRecords}>
+                    <lightning-datatable
+                        key-field="id"
+                        data={historianRecords}
+                        columns={timelineColumns}
+                        hide-checkbox-column
+                        show-row-number-column>
+                    </lightning-datatable>
+                </template>
+            </template>
+
+            <!-- Compact Cards Style -->
+            <template if:true={isCompactCardsStyle}>
+                <template if:true={hasRecords}>
+                    <div class="slds-grid slds-wrap slds-gutters_small">
+                        <template for:each={compactCardItems} for:item="item">
+                            <div key={item.id} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3">
+                                <article class="slds-card slds-card_boundary">
+                                    <div class="slds-card__body slds-card__body_inner">
+                                        <div class="slds-media">
+                                            <div class="slds-media__figure">
+                                                <lightning-icon icon-name="utility:change" 
+                                                               size="small" 
+                                                               class="slds-icon-text-default">
+                                                </lightning-icon>
+                                            </div>
+                                            <div class="slds-media__body">
+                                                <h2 class="slds-card__header-title slds-text-heading_small slds-m-bottom_x-small">
+                                                    {item.fieldName}
+                                                </h2>
+                                                <p class="slds-text-body_regular slds-m-bottom_small">
+                                                    {item.changeDescription}
+                                                </p>
+                                                <footer class="slds-card__footer">
+                                                    <div class="slds-text-body_small slds-text-color_weak">
+                                                        {item.formattedDate}
+                                                    </div>
+                                                    <div class="slds-text-body_small slds-text-color_weak">
+                                                        by {item.createdByName}
+                                                    </div>
+                                                </footer>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>

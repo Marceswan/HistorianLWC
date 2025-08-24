@@ -1,18 +1,305 @@
 /* Use only SLDS classes - minimal custom overrides */
 
-/* Action dropdown overflow handling */
-lightning-datatable .slds-dropdown {
-    max-height: 200px;
-    overflow-y: auto;
+/* Comprehensive fix for lightning-datatable action dropdown overflow */
+
+/* 1. Create a wrapper container that allows overflow */
+.datatable-wrapper {
+    position: relative;
+    overflow: visible !important;
+    z-index: 10; /* Higher z-index to ensure dropdowns appear above cards */
+    /* Ensure the wrapper doesn't interfere with dropdown positioning */
+    transform: none !important;
+    contain: none !important;
+    /* Ensure parent containers don't clip */
+    min-height: 200px;
 }
 
-lightning-datatable .slds-dropdown__list {
-    max-height: 200px;
-    overflow-y: auto;
+/* 2. Target all potential clipping containers in lightning-datatable */
+:host lightning-datatable,
+:host lightning-datatable .slds-table_header-fixed_container,
+:host lightning-datatable .slds-table--header-fixed_container,
+:host lightning-datatable .slds-scrollable_x,
+:host lightning-datatable .slds-scrollable_y, 
+:host lightning-datatable .slds-scrollable,
+:host lightning-datatable .slds-table_bordered,
+:host lightning-datatable .slds-table--bordered,
+:host lightning-datatable .slds-table,
+:host lightning-datatable .slds-table_resizable-cols,
+:host lightning-datatable .slds-table--resizable-cols,
+:host .slds-card__body,
+:host .slds-card__body_inner {
+    overflow: visible !important;
 }
 
-/* Ensure action menu stays within viewport */
-lightning-datatable .slds-dropdown_right {
-    right: 0;
-    left: auto;
+/* 3. Ensure dropdown menus have proper layering and positioning */
+:host lightning-datatable .slds-dropdown,
+:host lightning-datatable .slds-dropdown_left,
+:host lightning-datatable .slds-dropdown--left,
+:host lightning-datatable .slds-dropdown_right,
+:host lightning-datatable .slds-dropdown--right {
+    position: fixed !important;
+    z-index: 99999 !important;
+    /* Use viewport units to ensure dropdown is always visible */
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+    /* Prevent dropdown from being clipped by table boundaries */
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+}
+
+/* 4. Specific positioning for right-aligned dropdowns */
+:host lightning-datatable .slds-dropdown_right,
+:host lightning-datatable .slds-dropdown--right {
+    right: auto !important;
+    left: auto !important;
+    transform: none !important;
+}
+
+/* 5. Ensure dropdown button containers don't clip */
+:host lightning-datatable .slds-dropdown-trigger,
+:host lightning-datatable .slds-dropdown-trigger_click,
+:host lightning-datatable .slds-dropdown-trigger--click {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+/* 6. Action cell specific overrides */
+:host lightning-datatable th[data-label="Actions"],
+:host lightning-datatable td[data-label="Actions"],
+:host lightning-datatable .slds-cell-action-mode,
+:host lightning-datatable .slds-has-button-menu {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 10 !important;
+}
+
+/* 7. Table row and cell overflow management */
+:host lightning-datatable tbody tr,
+:host lightning-datatable tbody td {
+    position: relative !important;
+}
+
+/* 8. Last column (action column) specific styling */
+:host lightning-datatable tbody tr td:last-child {
+    overflow: visible !important;
+    position: static !important;
+}
+
+/* 9. Button menu specific overrides */
+:host lightning-datatable lightning-button-menu,
+:host lightning-datatable .slds-button-group {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 10 !important;
+}
+
+/* 10. Prevent any webkit-specific clipping */
+:host lightning-datatable * {
+    -webkit-transform: none !important;
+}
+
+/* 11. Ensure proper stacking context for the entire card */
+:host .slds-card {
+    position: relative !important;
+    z-index: 1 !important;
+    overflow: visible !important;
+}
+
+/* 11a. Special handling for active configuration table card */
+:host .slds-card:has(.datatable-wrapper) {
+    z-index: 10 !important;
+    overflow: visible !important;
+}
+
+/* 11b. Ensure all parent containers of datatable allow overflow */
+:host .slds-card__body:has(.datatable-wrapper),
+:host .slds-card__body_inner:has(.datatable-wrapper) {
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* 12. Additional safety overrides for stubborn containers */
+:host lightning-datatable .slds-has-focus,
+:host lightning-datatable .slds-is-open,
+:host lightning-datatable .slds-show,
+:host lightning-datatable .slds-dropdown-trigger.slds-is-open {
+    overflow: visible !important;
+    position: relative !important;
+}
+
+/* 13. Force visibility for dropdown items */
+:host lightning-datatable .slds-dropdown__item,
+:host lightning-datatable .slds-dropdown__list {
+    position: relative !important;
+    z-index: inherit !important;
+}
+
+/* 14. Ensure button menus don't get masked */
+:host lightning-datatable lightning-primitive-cell-actions,
+:host lightning-datatable lightning-primitive-cell-factory {
+    overflow: visible !important;
+    position: relative !important;
+}
+
+/* 15. Mobile responsiveness for dropdowns */
+@media (max-width: 768px) {
+    :host lightning-datatable .slds-dropdown {
+        position: absolute !important;
+        max-height: 40vh !important;
+        right: 0 !important;
+        left: auto !important;
+        transform: translateX(0) !important;
+    }
+    
+    .datatable-wrapper {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+    }
+}
+
+/* Object Summary Cards Styling */
+.object-summary-grid {
+    min-height: 120px;
+    /* Ensure cards section doesn't interfere with datatable dropdown overflow */
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+}
+
+.object-summary-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 0.25rem;
+    border: 2px solid transparent;
+    min-height: 140px;
+}
+
+.object-summary-card:hover {
+    background-color: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    border-color: var(--slds-g-color-brand-base-10, #e5f3ff);
+    transform: translateY(-2px);
+    box-shadow: var(--slds-g-shadow-outset-2, 0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.object-summary-card:active {
+    transform: translateY(0);
+}
+
+.object-summary-card[data-selected="true"] {
+    background-color: var(--slds-g-color-neutral-base-10, #181818);
+    border-color: var(--slds-g-color-neutral-base-20, #444444);
+    box-shadow: var(--slds-g-shadow-outset-3, 0 4px 8px rgba(0, 0, 0, 0.25));
+}
+
+/* White text on selected cards for readability */
+.object-summary-card[data-selected="true"] .slds-text-heading_small,
+.object-summary-card[data-selected="true"] .slds-text-body_regular,
+.object-summary-card[data-selected="true"] .slds-text-body_small,
+.object-summary-card[data-selected="true"] .slds-text-color_weak,
+.object-summary-card[data-selected="true"] span,
+.object-summary-card[data-selected="true"] div {
+    color: white !important;
+}
+
+/* Keep status icons visible with appropriate colors on selected cards */
+.object-summary-card[data-selected="true"] .status-success {
+    color: #4bca81 !important;
+}
+
+.object-summary-card[data-selected="true"] .status-warning {
+    color: #ffb75d !important;
+}
+
+.object-summary-card[data-selected="true"] .status-error {
+    color: #ff6b6b !important;
+}
+
+/* Ensure proper spacing within cards */
+.object-summary-card .slds-media__body {
+    flex-grow: 1;
+}
+
+.object-summary-card .slds-text-heading_small {
+    color: var(--slds-g-color-neutral-base-10, #181818);
+    font-weight: 600;
+}
+
+.object-summary-card .slds-text-body_small {
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+/* Deploy trigger button styling */
+.deploy-trigger-btn {
+    width: 100%;
+    font-size: 0.75rem;
+}
+
+.object-summary-card[data-selected="true"] .deploy-trigger-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.object-summary-card[data-selected="true"] .deploy-trigger-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.object-summary-card[data-selected="true"] .deploy-trigger-btn:disabled {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Responsive adjustments for object cards */
+@media (max-width: 768px) {
+    .object-summary-grid .slds-col {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    
+    .object-summary-card {
+        margin-bottom: 0.5rem;
+        min-height: 120px;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .object-summary-grid .slds-large-size_1-of-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+/* Status indicator styling */
+.object-summary-card .slds-icon-text-success {
+    color: var(--slds-g-color-success-base-50, #45c65a);
+}
+
+.object-summary-card .slds-icon-text-warning {
+    color: var(--slds-g-color-warning-base-50, #ffb75d);
+}
+
+.object-summary-card .slds-icon-text-error {
+    color: var(--slds-g-color-error-base-50, #ea001e);
+}
+
+/* Card grid spacing adjustments */
+.object-summary-grid.slds-gutters > .slds-col {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Smooth transitions for all interactive elements */
+.object-summary-card * {
+    transition: color 0.15s ease-in-out;
+}
+
+/* Focus states for accessibility */
+.object-summary-card:focus {
+    outline: 2px solid var(--slds-g-color-brand-base-50, #0176d3);
+    outline-offset: 2px;
 }

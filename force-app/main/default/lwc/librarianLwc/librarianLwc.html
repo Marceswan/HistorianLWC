@@ -48,6 +48,143 @@
                     </template>
                 </div>
             </template>
+            <!-- Object Summary Cards Section -->
+            <template if:true={showObjectSummaries}>
+                <div class="slds-card slds-m-bottom_medium">
+                    <div class="slds-card__header slds-grid">
+                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                            <div class="slds-media__figure">
+                                <lightning-icon icon-name="utility:apps" size="x-small" class="slds-icon-text-default"></lightning-icon>
+                            </div>
+                            <div class="slds-media__body">
+                                <h2 class="slds-card__header-title">
+                                    <span class="slds-text-heading_small">Object Configuration Overview</span>
+                                </h2>
+                            </div>
+                        </header>
+                    </div>
+                    <div class="slds-card__body slds-card__body_inner">
+                        <div class="slds-grid slds-wrap slds-gutters object-summary-grid">
+                            <template for:each={objectSummaries} for:item="objectSummary">
+                                <div key={objectSummary.objectApiName} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3">
+                                    <div class="slds-box slds-theme_default object-summary-card" 
+                                         data-object={objectSummary.objectApiName}
+                                         data-selected={objectSummary.isSelected}
+                                         onclick={handleObjectCardClick}>
+                                        <div class="slds-media">
+                                            <div class="slds-media__figure">
+                                                <lightning-icon icon-name="utility:custom_apps" size="medium" class="slds-icon-text-default"></lightning-icon>
+                                            </div>
+                                            <div class="slds-media__body">
+                                                <h3 class="slds-text-heading_small slds-m-bottom_x-small">{objectSummary.objectApiName}</h3>
+                                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <div class="slds-media slds-media_small">
+                                                            <div class="slds-media__figure">
+                                                                <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                    <lightning-icon icon-name="utility:success" size="x-small" class="slds-icon-text-success"></lightning-icon>
+                                                                </template>
+                                                                <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                    <lightning-icon icon-name="utility:warning" size="x-small" class="slds-icon-text-warning"></lightning-icon>
+                                                                </template>
+                                                            </div>
+                                                            <div class="slds-media__body">
+                                                                <p class="slds-text-body_small slds-text-color_weak">Trigger</p>
+                                                                <p class="slds-text-body_small">
+                                                                    <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                        Deployed
+                                                                    </template>
+                                                                    <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                        Pending
+                                                                    </template>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <div class="slds-media slds-media_small">
+                                                            <div class="slds-media__figure">
+                                                                <lightning-icon icon-name="utility:settings" size="x-small" class="slds-icon-text-default"></lightning-icon>
+                                                            </div>
+                                                            <div class="slds-media__body">
+                                                                <p class="slds-text-body_small slds-text-color_weak">Active Configs</p>
+                                                                <p class="slds-text-body_small">{objectSummary.activeConfigsCount}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <div class="slds-media slds-media_small">
+                                                            <div class="slds-media__figure">
+                                                                <lightning-icon icon-name="utility:record" size="x-small" class="slds-icon-text-default"></lightning-icon>
+                                                            </div>
+                                                            <div class="slds-media__body">
+                                                                <p class="slds-text-body_small slds-text-color_weak">Record Types</p>
+                                                                <p class="slds-text-body_small">{objectSummary.activeRecordTypesCount}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="slds-col slds-size_1-of-2">
+                                                        <div class="slds-media slds-media_small">
+                                                            <div class="slds-media__figure">
+                                                                <template if:true={objectSummary.hasHistoryObject}>
+                                                                    <lightning-icon icon-name="utility:success" size="x-small" class="slds-icon-text-success"></lightning-icon>
+                                                                </template>
+                                                                <template if:false={objectSummary.hasHistoryObject}>
+                                                                    <lightning-icon icon-name="utility:close" size="x-small" class="slds-icon-text-error"></lightning-icon>
+                                                                </template>
+                                                            </div>
+                                                            <div class="slds-media__body">
+                                                                <p class="slds-text-body_small slds-text-color_weak">History Object</p>
+                                                                <p class="slds-text-body_small">
+                                                                    <template if:true={objectSummary.hasHistoryObject}>
+                                                                        Created
+                                                                    </template>
+                                                                    <template if:false={objectSummary.hasHistoryObject}>
+                                                                        Not Created
+                                                                    </template>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="slds-m-top_x-small">
+                                                    <p class="slds-text-body_small slds-text-color_weak">
+                                                        Last Updated: <lightning-formatted-date-time value={objectSummary.lastUpdated} year="numeric" month="short" day="2-digit" hour="2-digit" minute="2-digit"></lightning-formatted-date-time>
+                                                    </p>
+                                                </div>
+                                                
+                                                <!-- Deploy Trigger Actions -->
+                                                <div class="slds-m-top_small slds-border-top slds-p-top_x-small">
+                                                    <div class="slds-grid slds-gutters_x-small">
+                                                        <div class="slds-col slds-grow">
+                                                            <lightning-button 
+                                                                variant="neutral" 
+                                                                label={objectSummary.deployButtonLabel}
+                                                                size="small"
+                                                                icon-name="utility:apex"
+                                                                onclick={handleDeployTrigger}
+                                                                data-object-api={objectSummary.objectApiName}
+                                                                disabled={objectSummary.deployInProgress}
+                                                                class="deploy-trigger-btn slds-truncate">
+                                                            </lightning-button>
+                                                        </div>
+                                                        <template if:true={objectSummary.deployInProgress}>
+                                                            <div class="slds-col slds-no-flex">
+                                                                <lightning-spinner size="x-small" alternative-text="Deploying..."></lightning-spinner>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
             <template if:true={showEmptyState}>
                 <div class="slds-illustration slds-illustration_small">
                     <div class="slds-text-align_center slds-p-around_large">
@@ -65,19 +202,36 @@
                         <header class="slds-media slds-media_center slds-has-flexi-truncate">
                             <div class="slds-media__body">
                                 <h2 class="slds-card__header-title">
-                                    <span class="slds-text-heading_small">Active Configurations</span>
+                                    <span class="slds-text-heading_small">
+                                        <template if:true={selectedObjectFilter}>
+                                            {selectedObjectFilter} Configurations ({filteredConfigsCount})
+                                        </template>
+                                        <template if:false={selectedObjectFilter}>
+                                            Active Configurations ({totalConfigsCount})
+                                        </template>
+                                    </span>
                                 </h2>
+                                <template if:true={selectedObjectFilter}>
+                                    <div class="slds-m-top_x-small">
+                                        <lightning-pill label={selectedObjectFilter} onremove={clearObjectFilter}>
+                                            <lightning-icon icon-name="utility:filterList" size="x-small" slot="media"></lightning-icon>
+                                        </lightning-pill>
+                                    </div>
+                                </template>
                             </div>
                         </header>
                     </div>
                     <div class="slds-card__body slds-card__body_inner">
-                        <lightning-datatable 
-                            key-field="id" 
-                            data={configs} 
-                            columns={columns} 
-                            hide-checkbox-column 
-                            onrowaction={handleRowAction}>
-                        </lightning-datatable>
+                        <div class="datatable-wrapper">
+                            <lightning-datatable 
+                                key-field="id" 
+                                data={filteredConfigs} 
+                                columns={columns} 
+                                hide-checkbox-column 
+                                onrowaction={handleRowAction}
+                                onloaddatatable={handleDatatableLoad}>
+                            </lightning-datatable>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -96,12 +250,14 @@
                     </header>
                 </div>
                 <div class="slds-card__body slds-card__body_inner">
-                    <lightning-datatable 
-                        key-field="id" 
-                        data={recent} 
-                        columns={recentColumns} 
-                        hide-checkbox-column>
-                    </lightning-datatable>
+                    <div class="datatable-wrapper">
+                        <lightning-datatable 
+                            key-field="id" 
+                            data={recent} 
+                            columns={recentColumns} 
+                            hide-checkbox-column>
+                        </lightning-datatable>
+                    </div>
                 </div>
             </div>
         </div>
