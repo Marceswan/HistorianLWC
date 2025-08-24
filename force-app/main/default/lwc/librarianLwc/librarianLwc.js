@@ -22,16 +22,23 @@ export default class LibrarianLwc extends LightningElement {
     @track recordTypeOptions = [];
     @track selectedRecordTypes = [];
     @track columns = [
-        { label: 'Config Name', fieldName: 'configName' },
-        { label: 'Object', fieldName: 'objectApi' },
-        { label: 'Mode', fieldName: 'mode' },
-        { label: 'Style', fieldName: 'style' },
-        { label: 'Fields', fieldName: 'fields' },
-        { type: 'action', typeAttributes: { rowActions: [
-            { label: 'Edit', name: 'edit' },
-            { label: 'Manage Fields', name: 'fields' },
-            { label: 'Deactivate', name: 'delete' }
-        ]}}
+        { label: 'Config Name', fieldName: 'configName', type: 'text', fixedWidth: 150 },
+        { label: 'Object', fieldName: 'objectApi', type: 'text', fixedWidth: 120 },
+        { label: 'Mode', fieldName: 'mode', type: 'text', fixedWidth: 100 },
+        { label: 'Style', fieldName: 'style', type: 'text', fixedWidth: 100 },
+        { label: 'Fields', fieldName: 'fields', type: 'text', fixedWidth: 80 },
+        { 
+            type: 'action', 
+            fixedWidth: 120,
+            typeAttributes: { 
+                rowActions: [
+                    { label: 'Edit', name: 'edit', iconName: 'utility:edit' },
+                    { label: 'Manage Fields', name: 'fields', iconName: 'utility:list' },
+                    { label: 'Deactivate', name: 'delete', iconName: 'utility:delete' }
+                ],
+                menuAlignment: 'right'
+            }
+        }
     ];
 
     @track recent = [];

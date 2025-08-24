@@ -21,9 +21,10 @@
 
 .librarian-header__controls {
     display: grid;
-    grid-template-columns: 1fr 1fr 2fr;
+    grid-template-columns: minmax(200px, 1fr) minmax(200px, 1fr) minmax(300px, 2fr);
     gap: 1rem;
     align-items: end;
+    min-width: 0;
 }
 
 .librarian-header__input-group {
@@ -36,6 +37,7 @@
     gap: 0.5rem;
     justify-content: flex-end;
     align-items: end;
+    flex-wrap: wrap;
 }
 
 /* Button enhancements */
@@ -178,25 +180,38 @@
 }
 
 /* Custom datatable styling */
+.librarian-datatable {
+    width: 100%;
+    min-width: 700px;
+}
+
 .slds-table {
     border-collapse: separate;
     border-spacing: 0;
+    width: 100%;
+    table-layout: fixed;
 }
 
 .slds-table thead th {
     background: #f8f9fa;
     border-bottom: 2px solid #e5e5e5;
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 0.5rem;
     font-weight: 600;
     color: #495057;
     text-transform: none;
     letter-spacing: 0.025em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .slds-table tbody td {
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 0.5rem;
     border-bottom: 1px solid #f1f3f4;
     vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .slds-table tbody tr {
@@ -209,6 +224,22 @@
 
 .slds-table tbody tr:last-child td {
     border-bottom: none;
+}
+
+/* Action button styling */
+.slds-table .slds-dropdown-trigger {
+    position: relative;
+}
+
+.slds-table .slds-button_icon-border {
+    border: 1px solid #d8dde6;
+    background: #ffffff;
+    transition: all 0.2s ease;
+}
+
+.slds-table .slds-button_icon-border:hover {
+    background: #f3f3f3;
+    border-color: #c9ccd4;
 }
 
 /* ========================================
@@ -463,6 +494,19 @@
    RESPONSIVE DESIGN
    ======================================== */
 
+@media (max-width: 1024px) {
+    .librarian-header__controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .librarian-header__actions {
+        grid-column: 1 / -1;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+}
+
 @media (max-width: 768px) {
     .librarian-header__controls {
         grid-template-columns: 1fr;
@@ -473,6 +517,7 @@
         flex-direction: column;
         gap: 0.5rem;
         align-items: stretch;
+        grid-column: 1;
     }
     
     .librarian-content {
@@ -506,6 +551,10 @@
     
     .librarian-field-actions {
         justify-content: center;
+    }
+    
+    .librarian-datatable {
+        min-width: 600px;
     }
 }
 
