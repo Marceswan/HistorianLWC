@@ -1,5 +1,5 @@
 public with sharing class MdapiUtil {
-    public static final String API_VERSION = '61.0';
+    public static final String API_VERSION = '64.0';
     
     public static String metadataEndpoint() {
         String base = URL.getOrgDomainUrl().toExternalForm();

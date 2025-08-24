@@ -293,7 +293,7 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
         flow.actionCalls = new List<MetadataService.FlowActionCall>{actionCall};
         
         // Set API version
-        flow.apiVersion = 61.0;
+        flow.apiVersion = 64.0;
         
         return flow;
     }
@@ -349,12 +349,4 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
         }
     }
 
-    private String buildTriggerBody(String triggerName) {
-        String triggerBody = 'trigger ' + triggerName + ' on ' + objectApi + ' (after update) {\n';
-        triggerBody += '    // Auto-generated lightweight historian trigger - Updated: ' + System.now().format() + '\n';
-        triggerBody += '    HistorianTriggerHandler.handleAfterUpdate(\'' + objectApi + '\', Trigger.old, Trigger.new);\n';
-        triggerBody += '}\n';
-        
-        return triggerBody;
-    }
 }

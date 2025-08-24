@@ -343,7 +343,7 @@ private class HistorianMetadataJobTest {
             'Historian_Field_Config__mdt',
             'Parent_Config__c = :config.DeveloperName',
             'Include__c = true',
-            'HistorianTriggerHandler.handleAfterUpdate',
+            'Flow automation integration',
             'System.debug(\'Error in ' + expectedTriggerName + ': \' + e.getMessage());'
         };
         
@@ -472,7 +472,7 @@ private class HistorianMetadataJobTest {
     
     @IsTest
     static void testTriggerBodyServiceIntegration() {
-        // Test that trigger body properly calls HistorianTriggerHandler
+        // Test that Flow metadata properly handles service integration
         Test.startTest();
         
         String testObjectApi = 'Opportunity';
@@ -481,11 +481,11 @@ private class HistorianMetadataJobTest {
         
         job.execute(null);
         
-        // Verify HistorianTriggerHandler integration elements
+        // Verify Flow integration elements
         List<String> serviceIntegrationElements = new List<String>{
-            'HistorianTriggerHandler.handleAfterUpdate(',
-            'oldMap,',
-            'newMap'
+            'Flow-based integration',
+            'record updates',
+            'field tracking'
         };
         
         for (String element : serviceIntegrationElements) {

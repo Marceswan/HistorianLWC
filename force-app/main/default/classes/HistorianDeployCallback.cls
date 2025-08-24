@@ -41,7 +41,7 @@ global with sharing class HistorianDeployCallback implements Metadata.DeployCall
                 if (String.isNotBlank(this.objectApiName)) {
                     // Verify the trigger was actually deployed
                     try {
-                        Boolean triggerExists = TriggerDetectionService.isTriggerDeployed(this.objectApiName);
+                        Boolean triggerExists = FlowDetectionService.isFlowDeployed(this.objectApiName);
                         if (triggerExists) {
                             rec.Problem__c = 'Trigger deployed and verified successfully for ' + this.objectApiName;
                             System.debug('Trigger deployment verified: ' + this.triggerName);

@@ -80,24 +80,24 @@ public with sharing class HistorianConfigAdminService {
             
             System.debug('Found configs for ' + configsByObject.size() + ' objects');
             
-            // Get real trigger deployment status using TriggerDetectionService
-            Map<String, Boolean> triggerStatusByObject = new Map<String, Boolean>();
+            // Get real Flow deployment status using FlowDetectionService
+            Map<String, Boolean> flowStatusByObject = new Map<String, Boolean>();
             List<String> objectApiList = new List<String>(configsByObject.keySet());
             
             try {
-                // Use batch trigger detection for better performance
-                triggerStatusByObject = TriggerDetectionService.getTriggerStatusMap(objectApiList);
-                System.debug('Retrieved trigger status for ' + triggerStatusByObject.size() + ' objects');
+                // Use batch Flow detection for better performance
+                flowStatusByObject = FlowDetectionService.getFlowStatusMap(objectApiList);
+                System.debug('Retrieved Flow status for ' + flowStatusByObject.size() + ' objects');
             } catch (Exception ex) {
-                System.debug('Error getting trigger status, falling back to individual checks: ' + ex.getMessage());
+                System.debug('Error getting Flow status, falling back to individual checks: ' + ex.getMessage());
                 // Fallback to individual checks if batch fails
                 for (String objectApi : configsByObject.keySet()) {
                     try {
-                        Boolean triggerExists = TriggerDetectionService.isTriggerDeployed(objectApi);
-                        triggerStatusByObject.put(objectApi, triggerExists);
+                        Boolean flowExists = FlowDetectionService.isFlowDeployed(objectApi);
+                        flowStatusByObject.put(objectApi, flowExists);
                     } catch (Exception individualEx) {
-                        System.debug('Error checking trigger for ' + objectApi + ': ' + individualEx.getMessage());
-                        triggerStatusByObject.put(objectApi, false); // Default to false on error
+                        System.debug('Error checking Flow for ' + objectApi + ': ' + individualEx.getMessage());
+                        flowStatusByObject.put(objectApi, false); // Default to false on error
                     }
                 }
             }
@@ -121,7 +121,7 @@ public with sharing class HistorianConfigAdminService {
                     }
                     
                     // Check if trigger is deployed
-                    summary.triggerDeployed = triggerStatusByObject.get(objectApi) == true;
+                    summary.triggerDeployed = flowStatusByObject.get(objectApi) == true;
                     
                     // Check if history object exists
                     String historyObjectApi = objectApi + '_Historian__c';
@@ -901,8 +901,8 @@ public with sharing class HistorianConfigAdminService {
                 status.put('developerName', config.DeveloperName);
                 
                 try {
-                    // Check trigger deployment status
-                    Boolean triggerDeployed = TriggerDetectionService.isTriggerDeployed(config.Object_Api_Name__c);
+                    // Check Flow deployment status
+                    Boolean triggerDeployed = FlowDetectionService.isFlowDeployed(config.Object_Api_Name__c);
                     status.put('triggerDeployed', triggerDeployed);
                     
                     if (triggerDeployed) {
@@ -984,7 +984,7 @@ public with sharing class HistorianConfigAdminService {
             }
             
             List<String> objectList = new List<String>(uniqueObjects);
-            statusMap = TriggerDetectionService.getTriggerStatusMap(objectList);
+            statusMap = FlowDetectionService.getFlowStatusMap(objectList);
             
             System.debug('Refreshed trigger status for ' + statusMap.size() + ' objects');
             
