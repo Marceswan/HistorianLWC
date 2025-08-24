@@ -208,20 +208,103 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
                 MetadataService.SaveResult result = triggerResults[0];
                 if (result.success) {
                     System.debug('Successfully created trigger: ' + result.fullName);
+                    
+                    // Update deployment result record with success
+                    updateTriggerDeploymentResult(triggerName, 'Succeeded', 0, 'Trigger successfully deployed');
+                    
+                    // Verify deployment by checking trigger existence
+                    try {
+                        Boolean verified = TriggerDetectionService.verifyTriggerDeployment(objectApi);
+                        if (verified) {
+                            System.debug('Trigger deployment verified successfully: ' + triggerName);
+                        } else {
+                            System.debug('WARNING: Trigger deployment reported success but verification failed: ' + triggerName);
+                            updateTriggerDeploymentResult(triggerName, 'Warning', 0, 'Deployment succeeded but verification failed');
+                        }
+                    } catch (Exception verifyEx) {
+                        System.debug('Error verifying trigger deployment: ' + verifyEx.getMessage());
+                    }
+                    
                 } else {
                     System.debug('Failed to create trigger: ' + result.fullName);
+                    
+                    String errorMessages = '';
+                    Integer errorCount = 0;
+                    
                     if (result.errors != null) {
                         for (MetadataService.Error err : result.errors) {
                             System.debug('Trigger Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
+                            errorMessages += err.message + ' (' + err.statusCode + '); ';
+                            errorCount++;
                         }
                     }
+                    
+                    // Update deployment result record with failure
+                    updateTriggerDeploymentResult(triggerName, 'Failed', errorCount, 'Trigger deployment failed: ' + errorMessages);
                 }
+            } else {
+                System.debug('No trigger results returned from createMetadata');
+                updateTriggerDeploymentResult(triggerName, 'Failed', 1, 'No results returned from createMetadata call');
             }
             
         } catch (Exception e) {
             System.debug('Exception during trigger creation: ' + e.getMessage());
             System.debug('Exception type: ' + e.getTypeName());
             System.debug('Exception stack trace: ' + e.getStackTraceString());
+            
+            // Update deployment result record with exception
+            updateTriggerDeploymentResult(triggerName, 'Failed', 1, 'Exception during trigger creation: ' + e.getMessage());
+        }
+    }
+    
+    /**
+     * Update or create deployment result record for trigger deployment tracking
+     */
+    private void updateTriggerDeploymentResult(String triggerName, String status, Integer errorCount, String message) {
+        try {
+            // Look for existing deployment result record for this trigger
+            List<Historian_Deploy_Result__c> existingResults = [
+                SELECT Id, Request_Id__c, Status__c, State__c
+                FROM Historian_Deploy_Result__c
+                WHERE Component_FullName__c = :triggerName
+                  AND Component_Type__c = 'ApexTrigger'
+                  AND Request_Id__c LIKE 'TRIGGER_DEPLOY_%'
+                ORDER BY CreatedDate DESC
+                LIMIT 1
+            ];
+            
+            if (!existingResults.isEmpty()) {
+                // Update existing record
+                Historian_Deploy_Result__c result = existingResults[0];
+                result.Status__c = status;
+                result.State__c = (status == 'Succeeded') ? 'Completed' : 'Failed';
+                result.Error_Count__c = errorCount;
+                result.Problem__c = message;
+                result.Completed_On__c = System.now();
+                
+                update result;
+                System.debug('Updated existing deployment result record: ' + result.Id);
+                
+            } else {
+                // Create new record
+                Historian_Deploy_Result__c result = new Historian_Deploy_Result__c(
+                    Request_Id__c = 'TRIGGER_DEPLOY_' + System.currentTimeMillis(),
+                    Status__c = status,
+                    State__c = (status == 'Succeeded') ? 'Completed' : 'Failed',
+                    Error_Count__c = errorCount,
+                    Component_FullName__c = triggerName,
+                    Component_Type__c = 'ApexTrigger',
+                    Problem__c = message,
+                    Completed_On__c = System.now()
+                );
+                
+                insert result;
+                System.debug('Created new deployment result record: ' + result.Id);
+            }
+            
+        } catch (Exception ex) {
+            System.debug('Error updating trigger deployment result: ' + ex.getMessage());
+            // Don't throw - this is for tracking purposes only
         }
     }
 

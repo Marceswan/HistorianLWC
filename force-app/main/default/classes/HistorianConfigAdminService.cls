@@ -80,15 +80,26 @@ public with sharing class HistorianConfigAdminService {
             
             System.debug('Found configs for ' + configsByObject.size() + ' objects');
             
-            // Mock trigger deployment status since ApexTrigger querying has platform restrictions
+            // Get real trigger deployment status using TriggerDetectionService
             Map<String, Boolean> triggerStatusByObject = new Map<String, Boolean>();
-            for (String objectApi : configsByObject.keySet()) {
-                // Mock trigger status - in production this would use Tooling API or Metadata API
-                // For demo purposes, assume triggers are deployed for common objects
-                Boolean triggerExists = (objectApi.equalsIgnoreCase('Account') || 
-                                       objectApi.equalsIgnoreCase('Contact') || 
-                                       objectApi.equalsIgnoreCase('Opportunity'));
-                triggerStatusByObject.put(objectApi, triggerExists);
+            List<String> objectApiList = new List<String>(configsByObject.keySet());
+            
+            try {
+                // Use batch trigger detection for better performance
+                triggerStatusByObject = TriggerDetectionService.getTriggerStatusMap(objectApiList);
+                System.debug('Retrieved trigger status for ' + triggerStatusByObject.size() + ' objects');
+            } catch (Exception ex) {
+                System.debug('Error getting trigger status, falling back to individual checks: ' + ex.getMessage());
+                // Fallback to individual checks if batch fails
+                for (String objectApi : configsByObject.keySet()) {
+                    try {
+                        Boolean triggerExists = TriggerDetectionService.isTriggerDeployed(objectApi);
+                        triggerStatusByObject.put(objectApi, triggerExists);
+                    } catch (Exception individualEx) {
+                        System.debug('Error checking trigger for ' + objectApi + ': ' + individualEx.getMessage());
+                        triggerStatusByObject.put(objectApi, false); // Default to false on error
+                    }
+                }
             }
             
             // Build summaries for each object
@@ -110,7 +121,7 @@ public with sharing class HistorianConfigAdminService {
                     }
                     
                     // Check if trigger is deployed
-                    summary.triggerDeployed = triggerStatusByObject.containsKey(objectApi);
+                    summary.triggerDeployed = triggerStatusByObject.get(objectApi) == true;
                     
                     // Check if history object exists
                     String historyObjectApi = objectApi + '_Historian__c';
@@ -358,6 +369,18 @@ public with sharing class HistorianConfigAdminService {
                 try {
                     // Always run the metadata job to ensure triggers are current with field configuration
                     createHistorianObjectWithErrorHandling(input.objectApiName);
+                    
+                    // Also ensure trigger deployment is initiated for the configuration
+                    System.debug('Initiating trigger deployment for configuration: ' + input.objectApiName);
+                    try {
+                        String triggerJobId = deployTriggerForObject(input.objectApiName);
+                        System.debug('Trigger deployment initiated with job ID: ' + triggerJobId);
+                    } catch (Exception triggerEx) {
+                        System.debug('Error initiating trigger deployment: ' + triggerEx.getMessage());
+                        // Don't fail the entire operation if trigger deployment fails
+                        // The user can manually deploy later
+                    }
+                    
                 } catch (Exception ex) {
                     System.debug('Error ensuring historian setup: ' + ex.getMessage());
                     throw new AuraHandledException('Failed to ensure historian setup: ' + ex.getMessage() + '. The configuration has been saved but historian setup could not be completed automatically.');
@@ -848,6 +871,128 @@ public with sharing class HistorianConfigAdminService {
             System.debug('Unexpected error deploying trigger: ' + ex.getMessage());
             throw new AuraHandledException('Failed to deploy trigger: ' + ex.getMessage());
         }
+    }
+    
+    /**
+     * Get comprehensive diagnosis of trigger deployment issues for LibrarianLWC
+     */
+    @AuraEnabled
+    public static Map<String, Object> getTriggerDeploymentDiagnosis() {
+        Map<String, Object> diagnosis = new Map<String, Object>();
+        
+        try {
+            // Get all active configs and their trigger status
+            List<Historian_Config__mdt> configs = [
+                SELECT Object_Api_Name__c, DeveloperName, Active__c, Config_Name__c
+                FROM Historian_Config__mdt
+                WHERE Active__c = true
+            ];
+            
+            diagnosis.put('totalActiveConfigs', configs.size());
+            
+            List<Map<String, Object>> configStatus = new List<Map<String, Object>>();
+            Integer triggerDeployedCount = 0;
+            Integer triggerNotDeployedCount = 0;
+            
+            for (Historian_Config__mdt config : configs) {
+                Map<String, Object> status = new Map<String, Object>();
+                status.put('objectApi', config.Object_Api_Name__c);
+                status.put('configName', config.Config_Name__c);
+                status.put('developerName', config.DeveloperName);
+                
+                try {
+                    // Check trigger deployment status
+                    Boolean triggerDeployed = TriggerDetectionService.isTriggerDeployed(config.Object_Api_Name__c);
+                    status.put('triggerDeployed', triggerDeployed);
+                    
+                    if (triggerDeployed) {
+                        triggerDeployedCount++;
+                    } else {
+                        triggerNotDeployedCount++;
+                    }
+                    
+                    // Check object existence
+                    String historyObjectName = config.Object_Api_Name__c + '_Historian__c';
+                    Boolean historyObjectExists = Schema.getGlobalDescribe().containsKey(historyObjectName);
+                    status.put('historyObjectExists', historyObjectExists);
+                    
+                    // Check recent deployments
+                    String triggerName = config.Object_Api_Name__c + 'HistorianTrigger';
+                    List<Historian_Deploy_Result__c> recentDeployments = [
+                        SELECT Status__c, State__c, CreatedDate, Problem__c
+                        FROM Historian_Deploy_Result__c
+                        WHERE Component_FullName__c = :triggerName
+                        ORDER BY CreatedDate DESC
+                        LIMIT 1
+                    ];
+                    
+                    if (!recentDeployments.isEmpty()) {
+                        status.put('lastDeploymentStatus', recentDeployments[0].Status__c);
+                        status.put('lastDeploymentState', recentDeployments[0].State__c);
+                        status.put('lastDeploymentDate', recentDeployments[0].CreatedDate);
+                    } else {
+                        status.put('lastDeploymentStatus', 'No deployments found');
+                    }
+                    
+                } catch (Exception ex) {
+                    status.put('error', ex.getMessage());
+                }
+                
+                configStatus.add(status);
+            }
+            
+            diagnosis.put('configDetails', configStatus);
+            diagnosis.put('triggersDeployed', triggerDeployedCount);
+            diagnosis.put('triggersNotDeployed', triggerNotDeployedCount);
+            
+            // Check system readiness
+            Map<String, Object> systemStatus = new Map<String, Object>();
+            systemStatus.put('remoteSiteSettingsReady', checkRemoteSiteSettings());
+            systemStatus.put('canCreateAsyncJobs', Schema.sObjectType.AsyncApexJob.isAccessible());
+            
+            diagnosis.put('systemStatus', systemStatus);
+            diagnosis.put('success', true);
+            diagnosis.put('timestamp', System.now());
+            
+        } catch (Exception ex) {
+            diagnosis.put('success', false);
+            diagnosis.put('error', ex.getMessage());
+            diagnosis.put('errorType', ex.getTypeName());
+        }
+        
+        return diagnosis;
+    }
+    
+    /**
+     * Force refresh of trigger deployment status - useful for LibrarianLWC
+     */
+    @AuraEnabled
+    public static Map<String, Boolean> refreshTriggerStatusForAllObjects() {
+        Map<String, Boolean> statusMap = new Map<String, Boolean>();
+        
+        try {
+            // Get all objects with active configs
+            List<Historian_Config__mdt> configs = [
+                SELECT Object_Api_Name__c
+                FROM Historian_Config__mdt
+                WHERE Active__c = true
+            ];
+            
+            Set<String> uniqueObjects = new Set<String>();
+            for (Historian_Config__mdt config : configs) {
+                uniqueObjects.add(config.Object_Api_Name__c);
+            }
+            
+            List<String> objectList = new List<String>(uniqueObjects);
+            statusMap = TriggerDetectionService.getTriggerStatusMap(objectList);
+            
+            System.debug('Refreshed trigger status for ' + statusMap.size() + ' objects');
+            
+        } catch (Exception ex) {
+            System.debug('Error refreshing trigger status: ' + ex.getMessage());
+        }
+        
+        return statusMap;
     }
     
 }

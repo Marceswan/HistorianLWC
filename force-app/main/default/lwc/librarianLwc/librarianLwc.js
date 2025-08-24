@@ -12,6 +12,9 @@ import deleteField from '@salesforce/apex/HistorianConfigAdminService.deleteFiel
 import listRecent from '@salesforce/apex/HistorianConfigAdminService.listRecentDeployResults';
 import getRecordTypesForObject from '@salesforce/apex/HistorianConfigAdminService.getRecordTypesForObject';
 import deployTriggerForObject from '@salesforce/apex/HistorianConfigAdminService.deployTriggerForObject';
+import deployTriggerNow from '@salesforce/apex/TriggerDeploymentService.deployTriggerNow';
+import verifyTriggerDeployment from '@salesforce/apex/TriggerDeploymentService.verifyTriggerDeployment';
+import getDeploymentStatus from '@salesforce/apex/TriggerDeploymentService.getDeploymentStatus';
 
 export default class LibrarianLwc extends LightningElement {
     @track objectApi = '';
@@ -663,7 +666,7 @@ export default class LibrarianLwc extends LightningElement {
                 lastUpdated: new Date(),
                 isSelected: this.selectedObjectFilter === objectName,
                 deployInProgress: deployInProgress,
-                deployButtonLabel: deployInProgress ? 'Deploying...' : 'Deploy Trigger'
+                deployButtonLabel: deployInProgress ? 'Deploying...' : 'Deploy Trigger Now'
             };
         });
 
@@ -706,7 +709,7 @@ export default class LibrarianLwc extends LightningElement {
         this.applyObjectFilter();
     }
 
-    // Handle deploy trigger button click
+    // Handle deploy trigger button click with real-time deployment
     async handleDeployTrigger(event) {
         const objectApiName = event.target.dataset.objectApi;
         
@@ -720,32 +723,100 @@ export default class LibrarianLwc extends LightningElement {
             this.generateObjectSummaries(); // Refresh to show loading state
 
             this.toast('Deploy Started', 
-                `Deploying historian trigger for ${objectApiName}. This may take a few minutes.`, 
+                `Deploying historian trigger for ${objectApiName} using real-time deployment...`, 
                 'info');
 
-            // Deploy trigger using consolidated deployment service
-            const jobId = await deployTriggerForObject({ objectApiName: objectApiName });
-            console.log('Trigger deployment job started:', jobId);
-
+            console.log('Starting real-time trigger deployment for:', objectApiName);
+            
+            // Use the new real-time deployment service
+            const deployResult = await deployTriggerNow({ objectApiName: objectApiName });
+            console.log('Real-time deployment result:', deployResult);
+            
             this.deployInProgress.delete(objectApiName);
             this.generateObjectSummaries(); // Refresh to hide loading state
 
-            this.toast('Deploy Complete', 
-                `Historian trigger deployment for ${objectApiName} has been initiated.`, 
-                'success');
+            // Handle deployment results
+            if (deployResult.success) {
+                if (deployResult.verified) {
+                    this.toast('Deploy Complete', 
+                        `Historian trigger for ${objectApiName} deployed and verified successfully!`, 
+                        'success');
+                } else if (deployResult.inProgress) {
+                    this.toast('Deploy In Progress', 
+                        `Historian trigger deployment initiated for ${objectApiName}. Check Recent Activity for updates.`, 
+                        'info');
+                } else {
+                    this.toast('Deploy Complete', 
+                        `Historian trigger for ${objectApiName} deployed successfully.`, 
+                        'success');
+                }
+                
+                // Show additional details if available
+                if (deployResult.message) {
+                    console.log('Deployment message:', deployResult.message);
+                }
+                if (deployResult.triggerCode) {
+                    console.log('Generated trigger code:', deployResult.triggerCode);
+                }
+            } else {
+                // Show error details
+                const errorMsg = deployResult.error || 'Unknown deployment error';
+                this.toast('Deploy Failed', 
+                    `Failed to deploy trigger for ${objectApiName}: ${errorMsg}`, 
+                    'error');
+                
+                if (deployResult.errorType) {
+                    console.error('Deployment error type:', deployResult.errorType);
+                }
+            }
 
             // Refresh the recent deployment activity
             await this.loadRecent();
             await this.loadRealObjectSummaries();
+
+            // Verify deployment after a short delay
+            if (deployResult.success) {
+                setTimeout(async () => {
+                    await this.verifyTriggerStatus(objectApiName);
+                }, 3000); // Wait 3 seconds before verification
+            }
 
         } catch (error) {
             this.deployInProgress.delete(objectApiName);
             this.generateObjectSummaries();
             
             const errorMsg = this.errorMessage(error);
+            console.error('Deployment error:', error);
             this.toast('Deploy Failed', 
                 `Failed to deploy trigger for ${objectApiName}: ${errorMsg}`, 
                 'error');
+        }
+    }
+    
+    // Verify trigger deployment status
+    async verifyTriggerStatus(objectApiName) {
+        try {
+            console.log('Verifying trigger deployment for:', objectApiName);
+            
+            const verificationResult = await verifyTriggerDeployment({ objectApiName: objectApiName });
+            console.log('Verification result:', verificationResult);
+            
+            if (verificationResult.success && verificationResult.triggerExists) {
+                this.toast('Verification Complete', 
+                    `Trigger for ${objectApiName} is deployed and functional.`, 
+                    'success');
+                
+                // Refresh object summaries to reflect current status
+                await this.loadRealObjectSummaries();
+            } else if (!verificationResult.triggerExists) {
+                this.toast('Verification Warning', 
+                    `Trigger for ${objectApiName} may not be properly deployed. Check Recent Activity for details.`, 
+                    'warning');
+            }
+            
+        } catch (verifyError) {
+            console.error('Error verifying trigger deployment:', verifyError);
+            // Don't show toast for verification errors to avoid overwhelming user
         }
     }
 
