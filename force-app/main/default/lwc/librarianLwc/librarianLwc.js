@@ -25,6 +25,7 @@ export default class LibrarianLwc extends LightningElement {
         { label: 'Config Name', fieldName: 'configName' },
         { label: 'Object', fieldName: 'objectApi' },
         { label: 'Mode', fieldName: 'mode' },
+        { label: 'Style', fieldName: 'style' },
         { label: 'Fields', fieldName: 'fields' },
         { type: 'action', typeAttributes: { rowActions: [
             { label: 'Edit', name: 'edit' },
@@ -53,6 +54,7 @@ export default class LibrarianLwc extends LightningElement {
                 configName: c.configName,
                 objectApi: c.objectApiName,
                 mode: c.trackMode === 'AllFields' ? 'All Fields' : 'Per Field',
+                style: c.style || 'Timeline',
                 fields: '—',
                 _raw: c
             }));
@@ -110,25 +112,37 @@ export default class LibrarianLwc extends LightningElement {
     // Load record types for editing an existing config
     async loadRecordTypesForEdit(objectApiName, existingRecordTypes) {
         try {
+            console.log('loadRecordTypesForEdit called with:', objectApiName, existingRecordTypes);
             const recordTypes = await getRecordTypes({ objectApiName: objectApiName });
+            console.log('Record types returned from Apex:', recordTypes);
             this.recordTypeOptions = recordTypes || [];
+            console.log('recordTypeOptions set to:', this.recordTypeOptions);
+            console.log('hasRecordTypes computed property:', this.hasRecordTypes);
             
             // Set selected record types based on existing configuration
             if (existingRecordTypes && typeof existingRecordTypes === 'string' && existingRecordTypes.trim() !== '') {
                 // Convert comma-separated string to array
                 this.selectedRecordTypes = existingRecordTypes.split(',').map(rt => rt.trim()).filter(rt => rt);
+                console.log('Set selectedRecordTypes from string:', this.selectedRecordTypes);
             } else if (existingRecordTypes && Array.isArray(existingRecordTypes) && existingRecordTypes.length > 0) {
                 // Handle if it's already an array
                 this.selectedRecordTypes = existingRecordTypes;
+                console.log('Set selectedRecordTypes from array:', this.selectedRecordTypes);
             } else {
                 // Default to "All Record Types" if no existing selection and it's available
                 if (this.recordTypeOptions.length > 0 && 
                     this.recordTypeOptions[0].value === 'ALL_RECORD_TYPES') {
                     this.selectedRecordTypes = ['ALL_RECORD_TYPES'];
+                    console.log('Set selectedRecordTypes to ALL_RECORD_TYPES default');
                 } else {
                     this.selectedRecordTypes = [];
+                    console.log('Set selectedRecordTypes to empty array');
                 }
             }
+            
+            // Force re-render by updating the tracked properties
+            this.recordTypeOptions = [...this.recordTypeOptions];
+            this.selectedRecordTypes = [...this.selectedRecordTypes];
         } catch (error) {
             console.error('Error loading record types for edit:', error);
             this.recordTypeOptions = [];
@@ -272,6 +286,7 @@ export default class LibrarianLwc extends LightningElement {
                         configName: c.configName,
                         objectApi: c.objectApiName,
                         mode: c.trackMode === 'AllFields' ? 'All Fields' : 'Per Field',
+                        style: c.style || 'Timeline',
                         fields: '—',
                         _raw: c
                     }));
@@ -293,7 +308,7 @@ export default class LibrarianLwc extends LightningElement {
             label: raw.label || '',
             configName: raw.configName || '',
             objectApiName: raw.objectApiName || '',
-            trackingStyle: raw.trackingStyle || 'Timeline',
+            style: raw.style || 'Timeline',
             trackMode: raw.trackMode || 'AllFields', 
             active: raw.active !== undefined ? raw.active : true,
             historyObjectApi: raw.historyObjectApi || '',
@@ -304,12 +319,14 @@ export default class LibrarianLwc extends LightningElement {
         this.rootForm = { ...newForm };
         
         console.log('rootForm after mapping from CMDT:', JSON.stringify(this.rootForm));
-        console.log('Mapped values - trackingStyle:', this.rootForm.trackingStyle, 'trackMode:', this.rootForm.trackMode);
+        console.log('Mapped values - style:', this.rootForm.style, 'trackMode:', this.rootForm.trackMode);
         
         // Load record types for this object and set selected record types
         if (newForm.objectApiName) {
+            console.log('Loading record types for edit - objectApiName:', newForm.objectApiName);
             this.loadRecordTypesForEdit(newForm.objectApiName, newForm.recordTypes);
         } else {
+            console.log('No objectApiName for record type loading');
             this.recordTypeOptions = [];
             this.selectedRecordTypes = [];
         }
@@ -658,7 +675,9 @@ export default class LibrarianLwc extends LightningElement {
     }
 
     get hasRecordTypes() {
-        return Array.isArray(this.recordTypeOptions) && this.recordTypeOptions.length > 0;
+        const hasTypes = Array.isArray(this.recordTypeOptions) && this.recordTypeOptions.length > 0;
+        console.log('hasRecordTypes computed:', hasTypes, 'recordTypeOptions:', this.recordTypeOptions);
+        return hasTypes;
     }
 
     get showEmptyState() {

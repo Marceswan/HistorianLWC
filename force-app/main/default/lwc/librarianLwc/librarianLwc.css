@@ -1,0 +1,608 @@
+/* ========================================
+   LIBRARIAN LWC - MODERN UI STYLING
+   ======================================== */
+
+/* Root container improvements */
+.slds-card {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+/* ========================================
+   HEADER SECTION
+   ======================================== */
+
+.librarian-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-bottom: 1px solid #e5e5e5;
+    padding: 1.5rem;
+}
+
+.librarian-header__controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 1rem;
+    align-items: end;
+}
+
+.librarian-header__input-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.librarian-header__actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: end;
+}
+
+/* Button enhancements */
+.librarian-btn {
+    min-height: 2.5rem;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.librarian-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.librarian-btn--primary {
+    background: linear-gradient(135deg, #0176d3 0%, #005fb2 100%);
+    border: none;
+}
+
+.librarian-btn--secondary {
+    background: #ffffff;
+    border: 1px solid #d8dde6;
+    color: #0176d3;
+}
+
+.librarian-btn--neutral {
+    background: #f3f3f3;
+    border: 1px solid #d8dde6;
+    color: #444444;
+}
+
+/* ========================================
+   MAIN CONTENT AREA
+   ======================================== */
+
+.librarian-content {
+    padding: 2rem;
+    background: #fafbfc;
+    min-height: 400px;
+}
+
+/* Warning/Alert styling */
+.librarian-warning {
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #ffb75d;
+    background: linear-gradient(135deg, #fef5e7 0%, #fdf2e9 100%);
+}
+
+.librarian-warning__icon {
+    color: #fe9339;
+    margin-right: 0.75rem;
+}
+
+.librarian-warning__text {
+    font-weight: 500;
+    color: #8c4002;
+    line-height: 1.5;
+}
+
+/* Loading states */
+.librarian-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: #ffffff;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.librarian-loading__spinner {
+    margin-right: 1rem;
+}
+
+.librarian-loading__text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Empty state styling */
+.librarian-empty {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 2px dashed #d8dde6;
+}
+
+.librarian-empty__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #444444;
+    margin-bottom: 0.5rem;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.librarian-empty__description {
+    color: #6c757d;
+    line-height: 1.6;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* ========================================
+   DATA TABLES
+   ======================================== */
+
+.librarian-table-section {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.librarian-table-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.librarian-table-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333333;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.librarian-table-container {
+    overflow-x: auto;
+}
+
+/* Custom datatable styling */
+.slds-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.slds-table thead th {
+    background: #f8f9fa;
+    border-bottom: 2px solid #e5e5e5;
+    padding: 1rem 0.75rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: none;
+    letter-spacing: 0.025em;
+}
+
+.slds-table tbody td {
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid #f1f3f4;
+    vertical-align: middle;
+}
+
+.slds-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.slds-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.slds-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ========================================
+   MODAL STYLING
+   ======================================== */
+
+.librarian-modal .slds-modal__container {
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    border: none;
+    overflow: hidden;
+    max-width: 600px;
+    width: 90vw;
+}
+
+.librarian-modal .slds-modal__header {
+    background: linear-gradient(135deg, #0176d3 0%, #005fb2 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-bottom: none;
+}
+
+.librarian-modal .slds-modal__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.librarian-modal .slds-modal__content {
+    padding: 2rem;
+    background: #ffffff;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.librarian-modal .slds-modal__footer {
+    background: #f8f9fa;
+    padding: 1.25rem 2rem;
+    border-top: 1px solid #e5e5e5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ========================================
+   FORM STYLING
+   ======================================== */
+
+.librarian-form-section {
+    margin-bottom: 1.5rem;
+}
+
+.librarian-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.librarian-form-row--full {
+    grid-template-columns: 1fr;
+}
+
+.librarian-form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Enhanced form inputs */
+.slds-form-element__label {
+    font-weight: 500;
+    color: #333333;
+    margin-bottom: 0.5rem;
+}
+
+.slds-input,
+.slds-combobox__input,
+.slds-textarea {
+    border: 2px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    background: #ffffff;
+}
+
+.slds-input:focus,
+.slds-combobox__input:focus,
+.slds-textarea:focus {
+    border-color: #0176d3;
+    box-shadow: 0 0 0 3px rgba(1, 118, 211, 0.1);
+    outline: none;
+}
+
+.slds-input:hover,
+.slds-combobox__input:hover,
+.slds-textarea:hover {
+    border-color: #b8bcc8;
+}
+
+/* Checkbox styling */
+.slds-checkbox {
+    align-items: center;
+}
+
+.slds-checkbox_toggle .slds-checkbox_faux {
+    border-radius: 16px;
+}
+
+/* ========================================
+   FIELD MANAGEMENT SECTION
+   ======================================== */
+
+.librarian-field-row {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid #e5e5e5;
+    transition: all 0.2s ease;
+}
+
+.librarian-field-row:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+}
+
+.librarian-field-name {
+    font-weight: 500;
+    color: #333333;
+    display: flex;
+    align-items: center;
+}
+
+.librarian-field-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.librarian-field-separator {
+    border: none;
+    border-top: 2px solid #e5e5e5;
+    margin: 1.5rem 0;
+}
+
+.librarian-field-form {
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 1.5rem;
+    border: 1px solid #e5e5e5;
+    margin-top: 1rem;
+}
+
+/* ========================================
+   RECORD TYPE SECTION
+   ======================================== */
+
+.librarian-record-types {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border: 1px solid #e5e5e5;
+}
+
+.librarian-record-types__label {
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 0.75rem;
+    display: block;
+}
+
+.librarian-record-types__help {
+    color: #6c757d;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+}
+
+.librarian-record-types__empty {
+    background: #ffffff;
+    border: 1px dashed #d8dde6;
+    border-radius: 4px;
+    padding: 1rem;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* ========================================
+   DUAL LISTBOX ENHANCEMENTS
+   ======================================== */
+
+.slds-dueling-list {
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 1rem;
+    border: 1px solid #e5e5e5;
+}
+
+.slds-dueling-list__column-header {
+    font-weight: 600;
+    color: #333333;
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   PROGRESS AND STATUS INDICATORS
+   ======================================== */
+
+.librarian-progress {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #e3f2fd;
+    border-radius: 6px;
+    border-left: 4px solid #2196f3;
+}
+
+.librarian-progress__spinner {
+    margin-right: 0.75rem;
+}
+
+.librarian-progress__text {
+    font-size: 0.875rem;
+    color: #1565c0;
+    font-weight: 500;
+}
+
+/* Status indicators */
+.librarian-status--success {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.librarian-status--error {
+    color: #d32f2f;
+    font-weight: 500;
+}
+
+.librarian-status--warning {
+    color: #f57c00;
+    font-weight: 500;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 768px) {
+    .librarian-header__controls {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .librarian-header__actions {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: stretch;
+    }
+    
+    .librarian-content {
+        padding: 1rem;
+    }
+    
+    .librarian-form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .librarian-modal .slds-modal__container {
+        width: 95vw;
+        margin: 1rem;
+    }
+    
+    .librarian-modal .slds-modal__content {
+        padding: 1.5rem;
+    }
+    
+    .librarian-modal .slds-modal__footer {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .librarian-field-row .slds-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .librarian-field-actions {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .librarian-header {
+        padding: 1rem;
+    }
+    
+    .librarian-table-header {
+        padding: 0.75rem;
+    }
+    
+    .librarian-btn {
+        min-height: 2.25rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.librarian-text--muted {
+    color: #6c757d;
+}
+
+.librarian-text--emphasis {
+    font-weight: 600;
+    color: #333333;
+}
+
+.librarian-spacing--large {
+    margin: 2rem 0;
+}
+
+.librarian-spacing--medium {
+    margin: 1.5rem 0;
+}
+
+.librarian-spacing--small {
+    margin: 1rem 0;
+}
+
+.librarian-shadow--light {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.librarian-shadow--medium {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.librarian-border-radius {
+    border-radius: 6px;
+}
+
+/* ========================================
+   ACCESSIBILITY IMPROVEMENTS
+   ======================================== */
+
+.librarian-btn:focus {
+    outline: 2px solid #0176d3;
+    outline-offset: 2px;
+}
+
+.librarian-field-row:focus-within {
+    box-shadow: 0 0 0 2px rgba(1, 118, 211, 0.2);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .librarian-header {
+        background: #ffffff;
+        border-bottom: 2px solid #000000;
+    }
+    
+    .slds-input,
+    .slds-combobox__input,
+    .slds-textarea {
+        border: 2px solid #000000;
+    }
+    
+    .librarian-btn {
+        border: 2px solid #000000;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .librarian-btn,
+    .slds-input,
+    .slds-combobox__input,
+    .slds-textarea,
+    .librarian-field-row {
+        transition: none;
+    }
+    
+    .librarian-btn:hover {
+        transform: none;
+    }
+}

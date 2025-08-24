@@ -42,10 +42,9 @@ public with sharing class HistorianAdminController {
                 }
             }
             
-            // If no active record types found or only master record type, return empty list
-            if (activeRecordTypes.isEmpty() || 
-                (activeRecordTypes.size() == 1 && activeRecordTypes[0].isMaster())) {
-                System.debug('No non-master record types found for object: ' + objectApiName);
+            // If no active record types found, return empty list
+            if (activeRecordTypes.isEmpty()) {
+                System.debug('No active record types found for object: ' + objectApiName);
                 return options;
             }
             
@@ -58,14 +57,12 @@ public with sharing class HistorianAdminController {
             
             // Add individual record types
             for (Schema.RecordTypeInfo rtInfo : activeRecordTypes) {
-                // Skip master record type if there are other record types available
-                if (!rtInfo.isMaster() || activeRecordTypes.size() == 1) {
-                    options.add(new RecordTypeOption(
-                        rtInfo.getName(), 
-                        rtInfo.getRecordTypeId(),
-                        'Record Type: ' + rtInfo.getName()
-                    ));
-                }
+                // Include all active record types (including master)
+                options.add(new RecordTypeOption(
+                    rtInfo.getName(), 
+                    rtInfo.getRecordTypeId(),
+                    'Record Type: ' + rtInfo.getName()
+                ));
             }
             
             return options;
