@@ -290,10 +290,10 @@ export default class LibrarianLwc extends LightningElement {
         
         this.refreshAllData();
         
-        // Set up auto-refresh for more reactive UI
+        // Set up auto-refresh for more reactive UI (30 seconds to reduce log noise)
         this.refreshInterval = setInterval(() => {
             this.refreshAllData();
-        }, 5000); // 5 seconds for responsive updates
+        }, 30000); // 30 seconds to balance responsiveness with log noise
     }
     
     disconnectedCallback() {
