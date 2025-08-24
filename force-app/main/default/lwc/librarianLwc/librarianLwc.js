@@ -167,25 +167,32 @@ export default class LibrarianLwc extends LightningElement {
             [...this.template.querySelectorAll('lightning-input')]
                 .forEach(inputCmp => inputCmp.setCustomValidity(''));
             
+            // Log rootForm to see current values before validation
+            console.log('PRE-VALIDATION rootForm:', JSON.stringify(this.rootForm));
+            console.log('configName type:', typeof this.rootForm.configName);
+            console.log('configName value:', this.rootForm.configName);
+            console.log('configName length:', this.rootForm.configName ? this.rootForm.configName.length : 'undefined');
+            
             // Additional validation for trimmed values
             if (!this.rootForm.configName || this.rootForm.configName.trim() === '') {
+                console.log('CLIENT VALIDATION FAILED - configName is empty');
                 this.toast('Error', 'Config Name is required', 'error');
                 return;
             }
             if (!this.rootForm.objectApiName || this.rootForm.objectApiName.trim() === '') {
+                console.log('CLIENT VALIDATION FAILED - objectApiName is empty');
                 this.toast('Error', 'Object API Name is required', 'error');
                 return;
             }
             
-            // Log rootForm to see current values
-            console.log('Current rootForm:', JSON.stringify(this.rootForm));
+            console.log('CLIENT VALIDATION PASSED');
             
             // Create a clean object matching the Apex DTO structure
             const rootConfig = {
                 developerName: this.rootForm.developerName || '',
                 label: this.rootForm.label || this.rootForm.configName || 'Default Config',
-                configName: this.rootForm.configName.trim(),
-                objectApiName: this.rootForm.objectApiName.trim(),
+                configName: this.rootForm.configName ? this.rootForm.configName.trim() : '',
+                objectApiName: this.rootForm.objectApiName ? this.rootForm.objectApiName.trim() : '',
                 trackingStyle: this.rootForm.trackingStyle || 'Timeline',
                 trackMode: this.rootForm.trackMode || 'AllFields',
                 active: this.rootForm.active !== undefined ? this.rootForm.active : true,
