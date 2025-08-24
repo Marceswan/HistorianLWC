@@ -34,7 +34,14 @@ private class HistorianHelperTest {
         System.assertEquals('Account', result.sobjectType, 'Should have correct sObject type');
         
         // Note: Success may be false if no active configurations exist, which is expected in test context
+        // since we don't have custom metadata types configured in tests
         System.assertNotEquals(null, result.success, 'Should have a success value');
+        
+        // In test context, we expect this to fail gracefully due to no configurations
+        if (!result.success) {
+            System.assert(result.errorMessage.contains('No active configuration found'), 
+                'Should indicate no configuration found: ' + result.errorMessage);
+        }
     }
     
     @IsTest

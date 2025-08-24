@@ -134,7 +134,7 @@ public with sharing class HistorianChangeService {
     private static Set<String> getFieldsToTrack(HistorianConfigService.ConfigSummary config) {
         Set<String> fieldsToTrack = new Set<String>();
         
-        if (config.trackMode == 'AllFields') {
+        if (config.allFields) {
             // Get all accessible fields for the object
             Schema.SObjectType sobjectType = Schema.getGlobalDescribe().get(config.objectApi);
             if (sobjectType != null) {
@@ -148,10 +148,8 @@ public with sharing class HistorianChangeService {
             }
         } else {
             // Track specific configured fields
-            for (HistorianConfigService.FieldSummary field : config.fields) {
-                if (field.include) {
-                    fieldsToTrack.add(field.fieldApi);
-                }
+            for (String fieldApi : config.fieldApis) {
+                fieldsToTrack.add(fieldApi);
             }
         }
         

@@ -7,16 +7,20 @@ public with sharing class FlowDetectionService {
         try {
             String flowName = objectApiName + '_Historian_Flow';
             
-            // Query Flow metadata to check if Flow exists and is active
-            List<Flow> flows = [
-                SELECT Id, DeveloperName, MasterLabel, Status 
-                FROM Flow 
-                WHERE DeveloperName = :flowName 
-                  AND Status = 'Active'
-                LIMIT 1
-            ];
+            // Use Tooling API query approach for Flow detection
+            // Since direct Flow queries can be complex, we'll use a simpler approach
+            // Check if we can find any flow with the expected naming pattern
+            Boolean flowExists = false;
             
-            Boolean flowExists = !flows.isEmpty();
+            try {
+                // Try to query using different approaches
+                List<FlowDefinitionView> flowDefs = [SELECT Id, DurableId, ApiName FROM FlowDefinitionView WHERE ApiName = :flowName LIMIT 1];
+                flowExists = !flowDefs.isEmpty();
+            } catch (Exception queryEx) {
+                System.debug('FlowDefinitionView query failed: ' + queryEx.getMessage());
+                flowExists = false;
+            }
+            
             System.debug('Flow deployment check for ' + objectApiName + ': ' + flowExists);
             
             return flowExists;
@@ -38,30 +42,49 @@ public with sharing class FlowDetectionService {
             String flowName = objectApiName + '_Historian_Flow';
             details.put('flowName', flowName);
             
-            // Query Flow information
-            List<Flow> flows = [
-                SELECT Id, DeveloperName, MasterLabel, Status, TriggerType, ProcessType, 
-                       CreatedDate, LastModifiedDate, Description, ApiVersion
-                FROM Flow 
-                WHERE DeveloperName = :flowName
-                ORDER BY CreatedDate DESC
+            // Query FlowDefinitionView for basic Flow information
+            List<FlowDefinitionView> flows = [
+                SELECT Id, DurableId, ApiName, Label, Description
+                FROM FlowDefinitionView 
+                WHERE ApiName = :flowName
                 LIMIT 1
             ];
             
             if (!flows.isEmpty()) {
-                Flow flow = flows[0];
+                FlowDefinitionView flow = flows[0];
                 details.put('exists', true);
                 details.put('flowId', flow.Id);
-                details.put('status', flow.Status);
-                details.put('triggerType', flow.TriggerType);
-                details.put('processType', flow.ProcessType);
+                details.put('flowDefId', flow.DurableId);
+                details.put('apiName', flow.ApiName);
+                details.put('label', flow.Label);
                 details.put('description', flow.Description);
-                details.put('createdDate', flow.CreatedDate);
-                details.put('lastModifiedDate', flow.LastModifiedDate);
-                details.put('apiVersion', flow.ApiVersion);
-                details.put('isActive', flow.Status == 'Active');
+                // Note: CreatedDate and LastModifiedDate not available on FlowDefinitionView
                 
-                System.debug('Found Flow: ' + flow.DeveloperName + ', Status: ' + flow.Status);
+                // Check if there's an active version
+                Boolean hasActiveVersion = false;
+                try {
+                    List<FlowVersionView> activeVersions = [
+                        SELECT Id, Status 
+                        FROM FlowVersionView 
+                        WHERE FlowDefinitionViewId = :flow.DurableId 
+                          AND Status = 'Active'
+                        LIMIT 1
+                    ];
+                    hasActiveVersion = !activeVersions.isEmpty();
+                    if (hasActiveVersion) {
+                        details.put('status', 'Active');
+                    } else {
+                        details.put('status', 'Inactive');
+                    }
+                } catch (Exception versionEx) {
+                    System.debug('Error checking active version: ' + versionEx.getMessage());
+                    details.put('status', 'Unknown');
+                    hasActiveVersion = false;
+                }
+                
+                details.put('isActive', hasActiveVersion);
+                
+                System.debug('Found Flow: ' + flowName + ', Active: ' + hasActiveVersion);
             } else {
                 details.put('exists', false);
                 details.put('isActive', false);
@@ -95,19 +118,41 @@ public with sharing class FlowDetectionService {
                 statusMap.put(objectApi, false); // Default to false
             }
             
-            // Query all Flows at once
-            List<Flow> flows = [
-                SELECT Id, DeveloperName, Status 
-                FROM Flow 
-                WHERE DeveloperName IN :flowNames 
-                  AND Status = 'Active'
+            // Query FlowDefinitionView for all flows at once
+            List<FlowDefinitionView> flowDefs = [
+                SELECT Id, DurableId, ApiName
+                FROM FlowDefinitionView 
+                WHERE ApiName IN :flowNames
             ];
             
-            // Map results back to object names
-            for (Flow flow : flows) {
-                String objectApi = flow.DeveloperName.replace('_Historian_Flow', '');
-                statusMap.put(objectApi, true);
+            // For each found flow definition, check if it has an active version
+            Set<String> foundFlowDefIds = new Set<String>();
+            Map<String, String> flowDefIdToApiName = new Map<String, String>();
+            
+            for (FlowDefinitionView flowDef : flowDefs) {
+                foundFlowDefIds.add(flowDef.DurableId);
+                flowDefIdToApiName.put(flowDef.DurableId, flowDef.ApiName);
             }
+            
+            if (!foundFlowDefIds.isEmpty()) {
+                List<FlowVersionView> activeFlows = [
+                    SELECT Id, FlowDefinitionViewId
+                    FROM FlowVersionView 
+                    WHERE FlowDefinitionViewId IN :foundFlowDefIds 
+                      AND Status = 'Active'
+                ];
+                
+                // Mark flows as active if they have an active version
+                for (FlowVersionView activeFlow : activeFlows) {
+                    String apiName = flowDefIdToApiName.get(activeFlow.FlowDefinitionViewId);
+                    if (apiName != null) {
+                        String objectApi = apiName.replace('_Historian_Flow', '');
+                        statusMap.put(objectApi, true);
+                    }
+                }
+            }
+            
+            // Results are already mapped in the previous block
             
         } catch (Exception ex) {
             System.debug('Error getting Flow status map: ' + ex.getMessage());

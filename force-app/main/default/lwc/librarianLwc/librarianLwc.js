@@ -11,7 +11,6 @@ import upsertField from '@salesforce/apex/HistorianConfigAdminService.upsertFiel
 import deleteField from '@salesforce/apex/HistorianConfigAdminService.deleteField';
 import listRecent from '@salesforce/apex/HistorianConfigAdminService.listRecentDeployResults';
 import getRecordTypesForObject from '@salesforce/apex/HistorianConfigAdminService.getRecordTypesForObject';
-import deployFlowForObject from '@salesforce/apex/HistorianConfigAdminService.deployFlowForObject';
 import deployFlowNow from '@salesforce/apex/FlowDeploymentService.deployFlowNow';
 import verifyFlowDeployment from '@salesforce/apex/FlowDeploymentService.verifyFlowDeployment';
 import getDeploymentStatus from '@salesforce/apex/FlowDeploymentService.getDeploymentStatus';

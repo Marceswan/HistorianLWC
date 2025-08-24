@@ -16,13 +16,8 @@ private class HistorianChangeServiceTest {
         HistorianConfigService.ConfigSummary config = new HistorianConfigService.ConfigSummary();
         config.objectApi = 'Account';
         config.configName = 'Test_Config';
-        config.trackMode = 'PerField';
-        config.fields = new List<HistorianConfigService.FieldSummary>();
-        
-        HistorianConfigService.FieldSummary fieldConfig = new HistorianConfigService.FieldSummary();
-        fieldConfig.fieldApi = 'Name';
-        fieldConfig.include = true;
-        config.fields.add(fieldConfig);
+        config.allFields = false;
+        config.fieldApis = new List<String>{'Name'};
         
         // Create old and new record states
         Map<String, Object> oldRecord = new Map<String, Object>();
@@ -150,8 +145,8 @@ private class HistorianChangeServiceTest {
         HistorianConfigService.ConfigSummary config = new HistorianConfigService.ConfigSummary();
         config.objectApi = 'Account';
         config.configName = 'Test_AllFields_Config';
-        config.trackMode = 'AllFields';
-        config.fields = new List<HistorianConfigService.FieldSummary>();
+        config.allFields = true;
+        config.fieldApis = new List<String>();
         
         // Create record states
         Map<String, Object> oldRecord = new Map<String, Object>();

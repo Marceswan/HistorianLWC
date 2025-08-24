@@ -113,16 +113,14 @@ public with sharing class HistorianHelper {
      * Get configuration for the sObject
      */
     private static HistorianConfigService.ConfigSummary getConfiguration(String sobjectType, String configName) {
-        List<HistorianConfigService.ConfigSummary> configs = HistorianConfigService.getActiveConfigs();
+        List<HistorianConfigService.ConfigSummary> configs = HistorianConfigService.listActiveConfigs(sobjectType);
         
         for (HistorianConfigService.ConfigSummary config : configs) {
-            if (config.objectApi.equals(sobjectType)) {
-                // If specific config name provided, match it
-                if (String.isNotBlank(configName) && !config.configName.equals(configName)) {
-                    continue;
-                }
-                return config;
+            // If specific config name provided, match it
+            if (String.isNotBlank(configName) && !config.configName.equals(configName)) {
+                continue;
             }
+            return config;
         }
         
         return null;
@@ -136,7 +134,7 @@ public with sharing class HistorianHelper {
             // Build SOQL query for all tracked fields
             Set<String> fieldsToQuery = new Set<String>{'Id', 'LastModifiedDate', 'LastModifiedById'};
             
-            if (config.trackMode == 'AllFields') {
+            if (config.allFields) {
                 // Add all fields from object describe
                 Schema.SObjectType sobjectType = Schema.getGlobalDescribe().get(config.objectApi);
                 if (sobjectType != null) {
@@ -150,10 +148,8 @@ public with sharing class HistorianHelper {
                 }
             } else {
                 // Add specific configured fields
-                for (HistorianConfigService.FieldSummary field : config.fields) {
-                    if (field.include) {
-                        fieldsToQuery.add(field.fieldApi);
-                    }
+                for (String fieldApi : config.fieldApis) {
+                    fieldsToQuery.add(fieldApi);
                 }
             }
             
