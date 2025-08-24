@@ -1,58 +1,20 @@
 <template>
     <lightning-card title="Librarian – Historian Configs">
-        <div slot="actions" class="slds-grid slds-wrap slds-gutters slds-p-around_medium">
-            <div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12">
-                <lightning-input 
-                    type="text" 
-                    label="SObject API Name"
-                    placeholder="e.g., Account, Contact, Opportunity" 
-                    value={objectApi} 
-                    onchange={handleObjectChange}>
-                </lightning-input>
+        <div slot="actions" class="slds-grid slds-gutters_small">
+            <div class="slds-col">
+                <lightning-button 
+                    variant="brand" 
+                    label="New Config" 
+                    onclick={newRoot}>
+                </lightning-button>
             </div>
-            <div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12">
-                <lightning-input 
-                    type="text" 
-                    label="Config Name (Optional)"
-                    placeholder="e.g., AccountHistory" 
-                    value={configName} 
-                    onchange={handleConfigChange}>
-                </lightning-input>
-            </div>
-            <div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12 slds-grid slds-wrap slds-gutters_small">
-                <div class="slds-col slds-size_6-of-12 slds-medium-size_12-of-12">
-                    <lightning-button 
-                        label="Ensure Historian Object" 
-                        onclick={ensureHistorian}
-                        variant="brand"
-                        class="slds-m-bottom_x-small"
-                        disabled={loading}>
-                    </lightning-button>
-                </div>
-                <div class="slds-col slds-size_6-of-12 slds-medium-size_6-of-12">
-                    <lightning-button 
-                        variant="neutral" 
-                        label="Refresh" 
-                        onclick={refresh}
-                        class="slds-m-bottom_x-small"
-                        disabled={loading}>
-                    </lightning-button>
-                </div>
-                <div class="slds-col slds-size_6-of-12 slds-medium-size_6-of-12">
-                    <lightning-button 
-                        variant="neutral" 
-                        label="Remote Site Helper" 
-                        onclick={openRemoteSite}
-                        class="slds-m-bottom_x-small">
-                    </lightning-button>
-                </div>
-                <div class="slds-col slds-size_6-of-12 slds-medium-size_12-of-12">
-                    <lightning-button 
-                        variant="brand" 
-                        label="New Config" 
-                        onclick={newRoot}>
-                    </lightning-button>
-                </div>
+            <div class="slds-col">
+                <lightning-button 
+                    variant="neutral" 
+                    label="Refresh" 
+                    onclick={refresh}
+                    disabled={loading}>
+                </lightning-button>
             </div>
         </div>
         <div class="slds-p-around_medium">
@@ -91,7 +53,7 @@
                 </div>
             </template>
             <template if:true={showTable}>
-                <div class="slds-card slds-m-bottom_medium">
+                <div class="slds-card">
                     <div class="slds-card__header slds-grid">
                         <header class="slds-media slds-media_center slds-has-flexi-truncate">
                             <div class="slds-media__body">
@@ -113,7 +75,7 @@
                 </div>
             </template>
 
-            <div class="slds-card">
+            <div class="slds-card slds-m-top_medium">
                 <div class="slds-card__header slds-grid">
                     <header class="slds-media slds-media_center slds-has-flexi-truncate">
                         <div class="slds-media__figure">
