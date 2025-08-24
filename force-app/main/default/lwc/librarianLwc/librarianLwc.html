@@ -1,126 +1,137 @@
 <template>
-    <lightning-card title="Librarian – Historian Configs" class="librarian-card">
-        <div slot="actions" class="librarian-header">
-            <div class="librarian-header__controls">
-                <div class="librarian-header__input-group">
-                    <lightning-input 
-                        type="text" 
-                        label="SObject API Name"
-                        placeholder="e.g., Account, Contact, Opportunity" 
-                        value={objectApi} 
-                        onchange={handleObjectChange}
-                        class="librarian-input">
-                    </lightning-input>
-                </div>
-                <div class="librarian-header__input-group">
-                    <lightning-input 
-                        type="text" 
-                        label="Config Name (Optional)"
-                        placeholder="e.g., AccountHistory" 
-                        value={configName} 
-                        onchange={handleConfigChange}
-                        class="librarian-input">
-                    </lightning-input>
-                </div>
-                <div class="librarian-header__actions">
+    <lightning-card title="Librarian – Historian Configs">
+        <div slot="actions" class="slds-grid slds-wrap slds-gutters slds-p-around_medium">
+            <div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12">
+                <lightning-input 
+                    type="text" 
+                    label="SObject API Name"
+                    placeholder="e.g., Account, Contact, Opportunity" 
+                    value={objectApi} 
+                    onchange={handleObjectChange}>
+                </lightning-input>
+            </div>
+            <div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12">
+                <lightning-input 
+                    type="text" 
+                    label="Config Name (Optional)"
+                    placeholder="e.g., AccountHistory" 
+                    value={configName} 
+                    onchange={handleConfigChange}>
+                </lightning-input>
+            </div>
+            <div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12 slds-grid slds-wrap slds-gutters_small">
+                <div class="slds-col slds-size_6-of-12 slds-medium-size_12-of-12">
                     <lightning-button 
                         label="Ensure Historian Object" 
                         onclick={ensureHistorian}
-                        class="librarian-btn librarian-btn--primary"
+                        variant="brand"
+                        class="slds-m-bottom_x-small"
                         disabled={loading}>
                     </lightning-button>
+                </div>
+                <div class="slds-col slds-size_6-of-12 slds-medium-size_6-of-12">
                     <lightning-button 
                         variant="neutral" 
                         label="Refresh" 
                         onclick={refresh}
-                        class="librarian-btn librarian-btn--neutral"
+                        class="slds-m-bottom_x-small"
                         disabled={loading}>
                     </lightning-button>
+                </div>
+                <div class="slds-col slds-size_6-of-12 slds-medium-size_6-of-12">
                     <lightning-button 
                         variant="neutral" 
                         label="Remote Site Helper" 
                         onclick={openRemoteSite}
-                        class="librarian-btn librarian-btn--secondary">
+                        class="slds-m-bottom_x-small">
                     </lightning-button>
+                </div>
+                <div class="slds-col slds-size_6-of-12 slds-medium-size_12-of-12">
                     <lightning-button 
                         variant="brand" 
                         label="New Config" 
-                        onclick={newRoot}
-                        class="librarian-btn librarian-btn--primary">
+                        onclick={newRoot}>
                     </lightning-button>
                 </div>
             </div>
         </div>
-        <div class="librarian-content">
+        <div class="slds-p-around_medium">
             <template if:true={showMdapiWarning}>
-                <div class="librarian-warning" role="alert">
-                    <div class="slds-media slds-media_center">
-                        <div class="slds-media__figure librarian-warning__icon">
-                            <lightning-icon icon-name="utility:warning" size="small"></lightning-icon>
+                <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_warning slds-m-bottom_medium" role="alert">
+                    <div class="slds-media">
+                        <div class="slds-media__figure">
+                            <lightning-icon icon-name="utility:warning" size="small" variant="warning"></lightning-icon>
                         </div>
                         <div class="slds-media__body">
-                            <div class="librarian-warning__text">
-                                <strong>Remote Site Configuration Required:</strong> Metadata API (WSDL) callouts are not configured. Use the Remote Site Helper to add your My Domain remote site before creating Historian objects.
-                            </div>
+                            <h2 class="slds-text-heading_small">
+                                <strong>Remote Site Configuration Required:</strong> 
+                                Metadata API (WSDL) callouts are not configured. Use the Remote Site Helper to add your My Domain remote site before creating Historian objects.
+                            </h2>
                         </div>
                     </div>
                 </div>
             </template>
             <template if:true={loading}>
-                <div class="librarian-loading">
-                    <div class="librarian-loading__spinner">
-                        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
-                    </div>
+                <div class="slds-box slds-theme_default slds-text-align_center slds-m-bottom_medium">
+                    <lightning-spinner alternative-text="Loading" size="small" class="slds-m-right_small"></lightning-spinner>
                     <template if:true={progressMessage}>
-                        <div class="librarian-loading__text">{progressMessage}</div>
+                        <span class="slds-text-body_small">{progressMessage}</span>
                     </template>
                 </div>
             </template>
             <template if:true={showEmptyState}>
-                <div class="librarian-empty">
-                    <div class="slds-media slds-media_center slds-m-bottom_medium">
-                        <div class="slds-media__figure">
-                            <lightning-icon icon-name="utility:database" size="large" class="librarian-text--muted"></lightning-icon>
-                        </div>
+                <div class="slds-illustration slds-illustration_small">
+                    <div class="slds-text-align_center slds-p-around_large">
+                        <lightning-icon icon-name="utility:database" size="large" class="slds-m-bottom_small"></lightning-icon>
+                        <h3 class="slds-text-heading_medium slds-m-bottom_small">No Historian Configurations Found</h3>
+                        <p class="slds-text-body_regular slds-text-color_weak">
+                            Get started by entering a Salesforce Object API name above (such as "Account", "Contact", or "Opportunity") and clicking "New Config" to create your first historian configuration.
+                        </p>
                     </div>
-                    <h3 class="librarian-empty__title">No Historian Configurations Found</h3>
-                    <p class="librarian-empty__description">
-                        Get started by entering a Salesforce Object API name above (such as "Account", "Contact", or "Opportunity") and clicking "New Config" to create your first historian configuration.
-                    </p>
                 </div>
             </template>
             <template if:true={showTable}>
-                <div class="librarian-table-section">
-                    <div class="librarian-table-header">
-                        <h3 class="librarian-table-title">Active Configurations</h3>
+                <div class="slds-card slds-m-bottom_medium">
+                    <div class="slds-card__header slds-grid">
+                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                            <div class="slds-media__body">
+                                <h2 class="slds-card__header-title">
+                                    <span class="slds-text-heading_small">Active Configurations</span>
+                                </h2>
+                            </div>
+                        </header>
                     </div>
-                    <div class="librarian-table-container">
+                    <div class="slds-card__body slds-card__body_inner">
                         <lightning-datatable 
                             key-field="id" 
                             data={configs} 
                             columns={columns} 
                             hide-checkbox-column 
-                            onrowaction={handleRowAction}
-                            class="librarian-datatable">
+                            onrowaction={handleRowAction}>
                         </lightning-datatable>
                     </div>
                 </div>
             </template>
 
-            <div class="librarian-table-section librarian-spacing--large">
-                <div class="librarian-table-header">
-                    <h3 class="librarian-table-title">
-                        Recent Deployment Activity
-                        <lightning-icon icon-name="utility:clock" size="x-small" class="slds-m-left_x-small librarian-text--muted"></lightning-icon>
-                    </h3>
+            <div class="slds-card">
+                <div class="slds-card__header slds-grid">
+                    <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                        <div class="slds-media__figure">
+                            <lightning-icon icon-name="utility:clock" size="x-small" class="slds-icon-text-default"></lightning-icon>
+                        </div>
+                        <div class="slds-media__body">
+                            <h2 class="slds-card__header-title">
+                                <span class="slds-text-heading_small">Recent Deployment Activity</span>
+                            </h2>
+                        </div>
+                    </header>
                 </div>
-                <div class="librarian-table-container">
+                <div class="slds-card__body slds-card__body_inner">
                     <lightning-datatable 
                         key-field="id" 
                         data={recent} 
                         columns={recentColumns} 
-                        hide-checkbox-column
-                        class="librarian-datatable">
+                        hide-checkbox-column>
                     </lightning-datatable>
                 </div>
             </div>
@@ -129,41 +140,42 @@
 
     <!-- Root Config Modal -->
     <template if:true={showRoot}>
-        <section class="slds-modal slds-fade-in-open librarian-modal" role="dialog">
+        <section class="slds-modal slds-fade-in-open" role="dialog">
             <div class="slds-modal__container">
                 <header class="slds-modal__header">
-                    <h2 class="slds-modal__title">
+                    <h2 class="slds-modal__title slds-truncate">
                         <lightning-icon icon-name="utility:settings" size="small" class="slds-m-right_small"></lightning-icon>
                         Historian Configuration
                     </h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={closeRoot}>
+                        <lightning-icon icon-name="utility:close" alternative-text="close" size="small"></lightning-icon>
+                    </button>
                 </header>
-                <div class="slds-modal__content">
-                    <div class="librarian-form-section">
-                        <div class="librarian-form-row">
-                            <div class="librarian-form-group">
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-form">
+                        <div class="slds-grid slds-gutters slds-wrap">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <lightning-input 
                                     data-field="developerName" 
                                     label="Developer Name" 
                                     value={rootForm.developerName} 
                                     readonly 
-                                    autocomplete="off"
-                                    class="librarian-input">
+                                    autocomplete="off">
                                 </lightning-input>
                             </div>
-                            <div class="librarian-form-group">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <lightning-input 
                                     data-field="label" 
                                     label="Configuration Label" 
                                     value={rootForm.label} 
                                     readonly 
-                                    autocomplete="off"
-                                    class="librarian-input">
+                                    autocomplete="off">
                                 </lightning-input>
                             </div>
                         </div>
                         
-                        <div class="librarian-form-row">
-                            <div class="librarian-form-group">
+                        <div class="slds-grid slds-gutters slds-wrap slds-m-top_medium">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <lightning-input 
                                     data-field="configName" 
                                     label="Config Name" 
@@ -171,11 +183,10 @@
                                     onchange={handleRootInputChange} 
                                     autocomplete="off"
                                     required
-                                    class="librarian-input"
                                     field-level-help="A unique name for this configuration">
                                 </lightning-input>
                             </div>
-                            <div class="librarian-form-group">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <lightning-input 
                                     data-field="objectApiName" 
                                     label="Object API Name" 
@@ -183,34 +194,31 @@
                                     onchange={handleRootInputChange} 
                                     autocomplete="off"
                                     required
-                                    class="librarian-input"
                                     field-level-help="The Salesforce object to track (e.g., Account, Contact)">
                                 </lightning-input>
                             </div>
                         </div>
-                        <div class="librarian-form-row">
-                            <div class="librarian-form-group">
+                        <div class="slds-grid slds-gutters slds-wrap slds-m-top_medium">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <lightning-combobox 
                                     label="Tracking Mode" 
                                     value={rootForm.trackMode} 
                                     options={modeOptions} 
                                     onchange={handleRootModeChange}
-                                    class="librarian-input"
                                     field-level-help="Choose how fields are tracked: All Fields (automatic) or Per Field (selective)">
                                 </lightning-combobox>
                             </div>
-                            <div class="librarian-form-group">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                 <lightning-combobox 
                                     label="Display Style" 
                                     value={rootForm.trackingStyle} 
                                     options={styleOptions} 
                                     onchange={handleRootStyleChange}
-                                    class="librarian-input"
                                     field-level-help="How the history data will be displayed to users">
                                 </lightning-combobox>
                             </div>
                         </div>
-                        <div class="librarian-record-types">
+                        <div class="slds-box slds-theme_shade slds-m-top_medium">
                             <template if:true={hasRecordTypes}>
                                 <lightning-dual-listbox
                                     label="Record Types to Track"
@@ -219,33 +227,31 @@
                                     options={recordTypeOptions}
                                     value={selectedRecordTypes}
                                     onchange={handleRecordTypeChange}
-                                    field-level-help="Select specific record types to track, or choose 'All Record Types' to include all current and future record types for this object."
-                                    class="librarian-dual-listbox">
+                                    field-level-help="Select specific record types to track, or choose 'All Record Types' to include all current and future record types for this object.">
                                 </lightning-dual-listbox>
                             </template>
                             <template if:false={hasRecordTypes}>
                                 <div class="slds-form-element">
-                                    <label class="slds-form-element__label librarian-record-types__label">Record Types</label>
+                                    <label class="slds-form-element__label slds-text-title_caps">Record Types</label>
                                     <div class="slds-form-element__control">
-                                        <div class="librarian-record-types__empty">
-                                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                                            No record types are available for this object
+                                        <div class="slds-box slds-box_x-small slds-theme_default slds-text-align_center">
+                                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small slds-icon-text-default"></lightning-icon>
+                                            <span class="slds-text-color_weak">No record types are available for this object</span>
                                         </div>
                                     </div>
-                                    <div class="slds-form-element__help librarian-record-types__help">
+                                    <div class="slds-form-element__help slds-text-color_weak">
                                         This object does not have any record types defined, so all records will be tracked.
                                     </div>
                                 </div>
                             </template>
                         </div>
-                        <div class="librarian-form-row--full">
-                            <div class="librarian-form-group">
+                        <div class="slds-grid slds-m-top_medium">
+                            <div class="slds-col">
                                 <lightning-input 
                                     type="checkbox" 
                                     label="Configuration Active" 
                                     checked={rootForm.active} 
                                     onchange={handleRootActiveChange}
-                                    class="librarian-checkbox"
                                     field-level-help="Enable this configuration to start tracking changes">
                                 </lightning-input>
                             </div>
@@ -254,31 +260,25 @@
                 </div>
                 <footer class="slds-modal__footer">
                     <template if:true={isShowingProgress}>
-                        <div class="librarian-progress">
-                            <div class="librarian-progress__spinner">
-                                <lightning-spinner alternative-text="Processing" size="small" variant="inline"></lightning-spinner>
-                            </div>
-                            <div class="librarian-progress__text">{progressMessage}</div>
+                        <div class="slds-grid slds-grid_align-center">
+                            <lightning-spinner alternative-text="Processing" size="small" variant="inline" class="slds-m-right_small"></lightning-spinner>
+                            <span class="slds-text-body_small">{progressMessage}</span>
                         </div>
                     </template>
                     <template if:false={isShowingProgress}>
                         <div></div>
                     </template>
-                    <div class="slds-button-group">
-                        <lightning-button 
-                            label="Cancel" 
-                            onclick={closeRoot} 
-                            disabled={loading}
-                            class="librarian-btn librarian-btn--secondary">
-                        </lightning-button>
-                        <lightning-button 
-                            variant="brand" 
-                            label="Save Configuration" 
-                            onclick={saveRoot} 
-                            disabled={loading}
-                            class="librarian-btn librarian-btn--primary">
-                        </lightning-button>
-                    </div>
+                    <lightning-button 
+                        label="Cancel" 
+                        onclick={closeRoot} 
+                        disabled={loading}>
+                    </lightning-button>
+                    <lightning-button 
+                        variant="brand" 
+                        label="Save Configuration" 
+                        onclick={saveRoot} 
+                        disabled={loading}>
+                    </lightning-button>
                 </footer>
             </div>
         </section>
@@ -287,23 +287,30 @@
 
     <!-- Field Config Modal -->
     <template if:true={showFields}>
-        <section class="slds-modal slds-fade-in-open librarian-modal" role="dialog">
+        <section class="slds-modal slds-fade-in-open" role="dialog">
             <div class="slds-modal__container">
                 <header class="slds-modal__header">
-                    <h2 class="slds-modal__title">
+                    <h2 class="slds-modal__title slds-truncate">
                         <lightning-icon icon-name="utility:list" size="small" class="slds-m-right_small"></lightning-icon>
                         Field Configuration Management
                     </h2>
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={closeFields}>
+                        <lightning-icon icon-name="utility:close" alternative-text="close" size="small"></lightning-icon>
+                    </button>
                 </header>
-                <div class="slds-modal__content">
-                    <div class="librarian-form-section">
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-form">
                         <template for:each={fieldRows} for:item="r">
-                            <div key={r.developerName} class="librarian-field-row">
+                            <div key={r.developerName} class="slds-box slds-theme_shade slds-m-bottom_small">
                                 <div class="slds-grid slds-gutters slds-wrap">
                                     <div class="slds-col slds-size_6-of-12 slds-medium-size_8-of-12">
-                                        <div class="librarian-field-name">
-                                            <lightning-icon icon-name="utility:field" size="x-small" class="slds-m-right_x-small librarian-text--muted"></lightning-icon>
-                                            <strong>{r.fieldApiName}</strong>
+                                        <div class="slds-media">
+                                            <div class="slds-media__figure">
+                                                <lightning-icon icon-name="utility:field" size="x-small" class="slds-icon-text-default"></lightning-icon>
+                                            </div>
+                                            <div class="slds-media__body">
+                                                <strong class="slds-text-body_regular">{r.fieldApiName}</strong>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="slds-col slds-size_3-of-12 slds-medium-size_2-of-12">
@@ -313,74 +320,66 @@
                                             message-toggle-active="Tracking" 
                                             message-toggle-inactive="Not Tracking" 
                                             onchange={handleToggleInclude} 
-                                            data-devname={r.developerName}
-                                            class="librarian-toggle">
+                                            data-devname={r.developerName}>
                                         </lightning-input>
                                     </div>
-                                    <div class="slds-col slds-size_3-of-12 slds-medium-size_2-of-12">
-                                        <div class="librarian-field-actions">
-                                            <lightning-button-icon 
-                                                icon-name="utility:delete" 
-                                                title="Remove Field" 
-                                                alternative-text="Remove Field" 
-                                                onclick={deleteFieldRow} 
-                                                data-devname={r.developerName}
-                                                variant="border-filled"
-                                                class="librarian-btn-icon">
-                                            </lightning-button-icon>
-                                        </div>
+                                    <div class="slds-col slds-size_3-of-12 slds-medium-size_2-of-12 slds-text-align_right">
+                                        <lightning-button-icon 
+                                            icon-name="utility:delete" 
+                                            title="Remove Field" 
+                                            alternative-text="Remove Field" 
+                                            onclick={deleteFieldRow} 
+                                            data-devname={r.developerName}
+                                            variant="border-filled">
+                                        </lightning-button-icon>
                                     </div>
                                 </div>
                             </div>
                         </template>
-                        <hr class="librarian-field-separator" />
                         
-                        <div class="librarian-field-form">
-                            <h4 class="slds-text-heading_small slds-m-bottom_medium librarian-text--emphasis">
-                                <lightning-icon icon-name="utility:add" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                                Add New Field
-                            </h4>
-                            <div class="librarian-form-row">
-                                <div class="librarian-form-group">
-                                    <lightning-input 
-                                        data-field="fieldApiName" 
-                                        label="Field API Name" 
-                                        value={fieldForm.fieldApiName} 
-                                        onchange={handleFieldInputChange}
-                                        placeholder="e.g., Name, Email, Amount"
-                                        class="librarian-input"
-                                        field-level-help="Enter the API name of the field you want to track">
-                                    </lightning-input>
-                                </div>
-                                <div class="librarian-form-group">
-                                    <lightning-input 
-                                        type="checkbox" 
-                                        label="Include in Tracking" 
-                                        checked={fieldForm.include} 
-                                        onchange={handleFieldIncludeChange}
-                                        class="librarian-checkbox"
-                                        field-level-help="Check this to track changes to this field">
-                                    </lightning-input>
+                        <div class="slds-section slds-is-open slds-m-top_large">
+                            <h3 class="slds-section__title">
+                                <span class="slds-truncate slds-p-horizontal_small slds-text-heading_small">
+                                    <lightning-icon icon-name="utility:add" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                    Add New Field
+                                </span>
+                            </h3>
+                            <div class="slds-section__content slds-p-top_medium">
+                                <div class="slds-grid slds-gutters slds-wrap">
+                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                        <lightning-input 
+                                            data-field="fieldApiName" 
+                                            label="Field API Name" 
+                                            value={fieldForm.fieldApiName} 
+                                            onchange={handleFieldInputChange}
+                                            placeholder="e.g., Name, Email, Amount"
+                                            field-level-help="Enter the API name of the field you want to track">
+                                        </lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                        <lightning-input 
+                                            type="checkbox" 
+                                            label="Include in Tracking" 
+                                            checked={fieldForm.include} 
+                                            onchange={handleFieldIncludeChange}
+                                            field-level-help="Check this to track changes to this field">
+                                        </lightning-input>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <footer class="slds-modal__footer">
-                    <div></div>
-                    <div class="slds-button-group">
-                        <lightning-button 
-                            label="Close" 
-                            onclick={closeFields}
-                            class="librarian-btn librarian-btn--secondary">
-                        </lightning-button>
-                        <lightning-button 
-                            variant="brand" 
-                            label="Add Field" 
-                            onclick={saveField}
-                            class="librarian-btn librarian-btn--primary">
-                        </lightning-button>
-                    </div>
+                    <lightning-button 
+                        label="Close" 
+                        onclick={closeFields}>
+                    </lightning-button>
+                    <lightning-button 
+                        variant="brand" 
+                        label="Add Field" 
+                        onclick={saveField}>
+                    </lightning-button>
                 </footer>
             </div>
         </section>
