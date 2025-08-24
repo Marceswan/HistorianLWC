@@ -163,17 +163,9 @@ export default class LibrarianLwc extends LightningElement {
         try {
             this.loading = true;
             
-            // Use Lightning form validation
-            const allValid = [...this.template.querySelectorAll('lightning-input[required]')]
-                .reduce((validSoFar, inputCmp) => {
-                    inputCmp.reportValidity();
-                    return validSoFar && inputCmp.checkValidity();
-                }, true);
-            
-            if (!allValid) {
-                this.toast('Error', 'Please fill in all required fields', 'error');
-                return;
-            }
+            // Clear any existing field-level validation errors
+            [...this.template.querySelectorAll('lightning-input')]
+                .forEach(inputCmp => inputCmp.setCustomValidity(''));
             
             // Additional validation for trimmed values
             if (!this.rootForm.configName || this.rootForm.configName.trim() === '') {
