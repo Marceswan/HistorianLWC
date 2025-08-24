@@ -1,0 +1,52 @@
+<apex:page controller="HistorianSessionHelperController">
+    <apex:form >
+        <script>
+            // Function to provide valid session ID to parent window
+            function provideSessionId() {
+                try {
+                    // Get valid session ID from Visualforce context
+                    var sessionId = '{!$Api.Session_ID}';
+                    
+                    // Post message back to parent window (LWC)
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'sessionId',
+                            sessionId: sessionId,
+                            endpoint: '{!JSENCODE(metadataEndpoint)}'
+                        }, '*');
+                    }
+                    
+                    return sessionId;
+                } catch (e) {
+                    console.error('Error getting session ID:', e);
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'sessionError',
+                            error: e.message
+                        }, '*');
+                    }
+                    return null;
+                }
+            }
+            
+            // Auto-provide session when page loads
+            window.onload = function() {
+                provideSessionId();
+            };
+        </script>
+        
+        <div style="padding: 20px;">
+            <h3>Historian Session Helper</h3>
+            <p>This page provides a valid session ID for Metadata API operations.</p>
+            <p>Session ID: <code id="sessionDisplay">{!$Api.Session_ID}</code></p>
+            <p>Metadata Endpoint: <code>{!metadataEndpoint}</code></p>
+            
+            <apex:commandButton value="Provide Session ID" onclick="provideSessionId(); return false;" />
+            
+            <script>
+                // Display session info for debugging
+                document.getElementById('sessionDisplay').textContent = '{!$Api.Session_ID}'.substring(0, 20) + '...';
+            </script>
+        </div>
+    </apex:form>
+</apex:page>

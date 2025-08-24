@@ -14,6 +14,9 @@ import getRecordTypesForObject from '@salesforce/apex/HistorianConfigAdminServic
 import deployFlowNow from '@salesforce/apex/FlowDeploymentService.deployFlowNow';
 import verifyFlowDeployment from '@salesforce/apex/FlowDeploymentService.verifyFlowDeployment';
 import getDeploymentStatus from '@salesforce/apex/FlowDeploymentService.getDeploymentStatus';
+import getSessionInfo from '@salesforce/apex/HistorianSessionProvider.getSessionInfo';
+import setSessionFromVf from '@salesforce/apex/HistorianSessionProvider.setSessionFromVf';
+import clearSessionCache from '@salesforce/apex/HistorianSessionProvider.clearCache';
 
 export default class LibrarianLwc extends LightningElement {
     @track objectApi = '';
@@ -51,6 +54,7 @@ export default class LibrarianLwc extends LightningElement {
     
     // Track deployment status per object
     @track deployInProgress = new Set();
+    @track sessionHelperNeeded = false;
     @track recentColumns = [
         { label: 'When', fieldName: 'when', type: 'date', typeAttributes: { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' } },
         { label: 'Status', fieldName: 'status', cellAttributes: { class: { fieldName: 'statusClass' } } },
@@ -289,11 +293,15 @@ export default class LibrarianLwc extends LightningElement {
         this.mdapiReady = true;
         
         this.refreshAllData();
+        this.initializeSession();
         
         // Set up auto-refresh for more reactive UI (30 seconds to reduce log noise)
         this.refreshInterval = setInterval(() => {
             this.refreshAllData();
         }, 30000); // 30 seconds to balance responsiveness with log noise
+        
+        // Listen for session messages from VF helper
+        window.addEventListener('message', this.handleSessionMessage.bind(this));
     }
     
     disconnectedCallback() {
@@ -301,6 +309,9 @@ export default class LibrarianLwc extends LightningElement {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
         }
+        
+        // Clean up event listener
+        window.removeEventListener('message', this.handleSessionMessage.bind(this));
     }
     
     async refreshAllData() {
@@ -806,9 +817,18 @@ export default class LibrarianLwc extends LightningElement {
             
             const errorMsg = this.errorMessage(error);
             console.error('Deployment error:', error);
-            this.toast('Deploy Failed', 
-                `Failed to deploy Flow for ${objectApiName}: ${errorMsg}`, 
-                'error');
+            
+            // Check if this is a session issue
+            if (errorMsg.includes('Invalid session ID detected') || errorMsg.includes('INVALID_SESSION_ID')) {
+                this.sessionHelperNeeded = true;
+                this.toast('Session Required', 
+                    `Flow deployment failed due to invalid session. Click "Session Helper" to get a valid session for Metadata API calls.`, 
+                    'warning');
+            } else {
+                this.toast('Deploy Failed', 
+                    `Failed to deploy Flow for ${objectApiName}: ${errorMsg}`, 
+                    'error');
+            }
         }
     }
     
@@ -897,6 +917,68 @@ export default class LibrarianLwc extends LightningElement {
         } finally {
             this.loading = false;
             this.clearProgressMessage();
+        }
+    }
+    
+    // Session management methods
+    async initializeSession() {
+        try {
+            console.log('Initializing session for Metadata API...');
+            const sessionInfo = await getSessionInfo();
+            
+            if (sessionInfo.needsVfHelper) {
+                console.log('Need to use VF helper for valid session ID');
+                this.sessionHelperNeeded = true;
+            } else {
+                console.log('Session is ready:', sessionInfo.source);
+                this.sessionHelperNeeded = false;
+            }
+        } catch (error) {
+            console.error('Error initializing session:', error);
+            this.sessionHelperNeeded = true;
+        }
+    }
+    
+    handleSessionMessage(event) {
+        if (event.data && event.data.type === 'sessionId') {
+            console.log('Received valid session ID from VF helper');
+            this.setSessionFromVfHelper(event.data.sessionId, event.data.endpoint);
+        } else if (event.data && event.data.type === 'sessionError') {
+            console.error('Session error from VF helper:', event.data.error);
+            this.toast('Session Error', event.data.error, 'error');
+        }
+    }
+    
+    async setSessionFromVfHelper(sessionId, endpoint) {
+        try {
+            const result = await setSessionFromVf({ sessionId, endpoint });
+            if (result.success) {
+                console.log('Successfully cached valid session from VF helper');
+                this.sessionHelperNeeded = false;
+                this.toast('Session Ready', 'Valid session ID cached for Metadata API operations', 'success');
+            } else {
+                console.error('Failed to cache session:', result.error);
+                this.toast('Session Error', result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error setting session from VF:', error);
+            this.toast('Session Error', 'Failed to cache session from VF helper', 'error');
+        }
+    }
+    
+    openSessionHelper() {
+        // Open the VF session helper in a popup
+        window.open('/apex/historiansessionhelper', 'sessionHelper', 'width=600,height=400,scrollbars=yes,resizable=yes');
+    }
+    
+    async clearSessionCache() {
+        try {
+            await clearSessionCache();
+            this.sessionHelperNeeded = true;
+            this.toast('Session Cache Cleared', 'You will need to get a new session for Metadata API operations', 'info');
+        } catch (error) {
+            console.error('Error clearing session cache:', error);
+            this.toast('Error', 'Failed to clear session cache', 'error');
         }
     }
 }

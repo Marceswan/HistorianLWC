@@ -23,6 +23,17 @@
                     <lightning-menu-item value="status" label="Check Status" onclick={checkPermissionStatus}></lightning-menu-item>
                 </lightning-button-menu>
             </div>
+            <template if:true={sessionHelperNeeded}>
+                <div class="slds-col">
+                    <lightning-button 
+                        variant="brand-outline" 
+                        label="Session Helper" 
+                        title="Get valid session for Metadata API"
+                        onclick={openSessionHelper}
+                        icon-name="utility:key">
+                    </lightning-button>
+                </div>
+            </template>
         </div>
         <div class="slds-p-around_medium">
             <template if:true={showMdapiWarning}>

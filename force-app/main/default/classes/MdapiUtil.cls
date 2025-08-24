@@ -12,14 +12,25 @@ public with sharing class MdapiUtil {
         service.endpoint_x = metadataEndpoint();
         service.SessionHeader = new MetadataService.SessionHeader_element();
         
-        // Get session ID - in Lightning context this often fails
-        String sessionId = UserInfo.getSessionId();
-        System.debug('Retrieved session ID length: ' + (sessionId != null ? sessionId.length() : 'null'));
+        // Try to get a cached valid session first
+        String sessionId = HistorianSessionProvider.getCachedSessionId();
         
-        // Check if this looks like a Lightning "gack" session (invalid for API)
-        if (sessionId != null && sessionId.startsWith('00D') && sessionId.length() < 50) {
-            System.debug('Detected potential Lightning frontend session - this may not work for Metadata API');
-            // For now, we'll still try it but provide a better error message
+        if (sessionId == null) {
+            // Fall back to UserInfo session ID if no cached session
+            sessionId = UserInfo.getSessionId();
+            System.debug('Using UserInfo session ID (length: ' + (sessionId != null ? String.valueOf(sessionId.length()) : 'null') + ')');
+            
+            // Check if this looks like a Lightning "gack" session (invalid for API)
+            if (sessionId != null && sessionId.startsWith('00D') && sessionId.length() < 50) {
+                System.debug('Detected potential Lightning frontend session - this may not work for Metadata API');
+                throw new CalloutException('Invalid session ID detected. Please use the Session Helper to get a valid session for Metadata API calls.');
+            }
+        } else {
+            System.debug('Using cached valid session ID');
+        }
+        
+        if (sessionId == null) {
+            throw new CalloutException('No session ID available for Metadata API calls');
         }
         
         service.SessionHeader.sessionId = sessionId;
