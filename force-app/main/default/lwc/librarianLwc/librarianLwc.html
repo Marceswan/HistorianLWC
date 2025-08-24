@@ -47,8 +47,8 @@
                 <div class="slds-modal__content slds-p-around_medium">
                     <lightning-input data-field="developerName" label="Developer Name" value={rootForm.developerName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
                     <lightning-input data-field="label" label="Label" value={rootForm.label} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
-                    <lightning-input data-field="configName" label="Config Name" value={rootForm.configName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
-                    <lightning-input data-field="objectApiName" label="Object API Name" value={rootForm.objectApiName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
+                    <lightning-input data-field="configName" label="Config Name" value={rootForm.configName} onchange={handleRootInputChange} autocomplete="off" required></lightning-input>
+                    <lightning-input data-field="objectApiName" label="Object API Name" value={rootForm.objectApiName} onchange={handleRootInputChange} autocomplete="off" required></lightning-input>
                     <lightning-combobox label="Track Mode" value={rootForm.trackMode} options={modeOptions} onchange={handleRootModeChange}></lightning-combobox>
                     <lightning-combobox label="Style" value={rootForm.trackingStyle} options={styleOptions} onchange={handleRootStyleChange}></lightning-combobox>
                     <lightning-input type="checkbox" label="Active" checked={rootForm.active} onchange={handleRootActiveChange}></lightning-input>
