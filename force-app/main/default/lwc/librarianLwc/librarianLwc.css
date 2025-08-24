@@ -1,1 +1,18 @@
 /* Use only SLDS classes - minimal custom overrides */
+
+/* Action dropdown overflow handling */
+lightning-datatable .slds-dropdown {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+lightning-datatable .slds-dropdown__list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Ensure action menu stays within viewport */
+lightning-datatable .slds-dropdown_right {
+    right: 0;
+    left: auto;
+}
