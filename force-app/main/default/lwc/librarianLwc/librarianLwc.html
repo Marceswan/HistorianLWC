@@ -1,6 +1,6 @@
 <template>
     <lightning-card title="Librarian – Historian Configs">
-        <div slot="actions" class="slds-grid slds-gutters_small">
+        <div slot="actions" class="slds-grid slds-gutters_small slds-wrap">
             <div class="slds-col">
                 <lightning-button 
                     variant="brand" 
@@ -15,6 +15,13 @@
                     onclick={refresh}
                     disabled={loading}>
                 </lightning-button>
+            </div>
+            <div class="slds-col">
+                <lightning-button-menu alternative-text="Permission Options" icon-size="small" menu-alignment="right">
+                    <lightning-menu-item value="configure" label="Configure Permissions" onclick={configurePermissions}></lightning-menu-item>
+                    <lightning-menu-item value="assign" label="Assign to Users" onclick={assignPermissionsToUsers}></lightning-menu-item>
+                    <lightning-menu-item value="status" label="Check Status" onclick={checkPermissionStatus}></lightning-menu-item>
+                </lightning-button-menu>
             </div>
         </div>
         <div class="slds-p-around_medium">

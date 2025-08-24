@@ -12,6 +12,9 @@ import listRecent from '@salesforce/apex/HistorianConfigAdminService.listRecentD
 import mdapiRemoteSiteOk from '@salesforce/apex/HistorianSetupService.mdapiRemoteSiteOk';
 import isHistorianProvisioned from '@salesforce/apex/HistorianAdminController.isHistorianProvisioned';
 import getRecordTypes from '@salesforce/apex/HistorianAdminController.getRecordTypes';
+import ensureHistorianPermissions from '@salesforce/apex/HistorianPermissionService.ensureHistorianPermissions';
+import assignPermissionSetToAllUsers from '@salesforce/apex/HistorianPermissionService.assignPermissionSetToAllUsers';
+import getHistorianPermissionsInfo from '@salesforce/apex/HistorianPermissionService.getHistorianPermissionsInfo';
 
 export default class LibrarianLwc extends LightningElement {
     @track objectApi = '';
@@ -736,4 +739,70 @@ export default class LibrarianLwc extends LightningElement {
         }
     }
     sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+    // Permission management methods
+    async configurePermissions() {
+        try {
+            this.loading = true;
+            this.showProgressMessage('Configuring Historian object permissions...');
+            
+            const result = await ensureHistorianPermissions();
+            this.toast('Permissions Configured', result, 'success');
+            
+        } catch (e) {
+            console.error('Error configuring permissions:', e);
+            this.toast('Permission Configuration Error', this.errorMessage(e), 'error');
+        } finally {
+            this.loading = false;
+            this.clearProgressMessage();
+        }
+    }
+
+    async assignPermissionsToUsers() {
+        try {
+            this.loading = true;
+            this.showProgressMessage('Assigning permissions to all users...');
+            
+            const result = await assignPermissionSetToAllUsers();
+            this.toast('Permissions Assigned', result, 'success');
+            
+        } catch (e) {
+            console.error('Error assigning permissions:', e);
+            this.toast('Permission Assignment Error', this.errorMessage(e), 'error');
+        } finally {
+            this.loading = false;
+            this.clearProgressMessage();
+        }
+    }
+
+    async checkPermissionStatus() {
+        try {
+            this.loading = true;
+            this.showProgressMessage('Checking permission status...');
+            
+            const info = await getHistorianPermissionsInfo();
+            
+            if (info.error) {
+                this.toast('Error', 'Failed to get permission info: ' + info.error, 'error');
+                return;
+            }
+            
+            let message = `Found ${info.objectCount} Historian objects. `;
+            message += `Permission set ${info.permissionSetExists ? 'exists' : 'does not exist'}. `;
+            message += `${info.assignmentCount} users have permissions assigned.`;
+            
+            if (info.historianObjects && info.historianObjects.length > 0) {
+                message += `\n\nHistorian Objects: ${info.historianObjects.join(', ')}`;
+            }
+            
+            this.toast('Permission Status', message, 'info');
+            
+        } catch (e) {
+            console.error('Error checking permissions:', e);
+            this.toast('Permission Check Error', this.errorMessage(e), 'error');
+        } finally {
+            this.loading = false;
+            this.clearProgressMessage();
+        }
+    }
 }
