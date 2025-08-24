@@ -103,9 +103,15 @@ public with sharing class HistorianConfigAdminService {
     @AuraEnabled
     public static RootConfigDTO upsertRoot(RootConfigDTO input) {
         // Debug logging
+        System.debug('=== UPSERTROOT CALLED ===');
         System.debug('upsertRoot input: ' + JSON.serialize(input));
-        System.debug('configName: ' + input.configName);
-        System.debug('objectApiName: ' + input.objectApiName);
+        System.debug('input is null: ' + (input == null));
+        if (input != null) {
+            System.debug('configName: ' + input.configName);
+            System.debug('configName is null: ' + (input.configName == null));
+            System.debug('configName is blank: ' + String.isBlank(input.configName));
+            System.debug('objectApiName: ' + input.objectApiName);
+        }
         
         // Validate required fields
         if (input.configName == null || String.isBlank(input.configName)) {
@@ -232,15 +238,16 @@ public with sharing class HistorianConfigAdminService {
         for (MetadataService.UpsertResult result : results) {
             Historian_Deploy_Result__c deployResult = new Historian_Deploy_Result__c();
             deployResult.Status__c = result.success ? 'Succeeded' : 'Failed';
-            deployResult.Operation__c = operation;
-            deployResult.Component_Full_Name__c = result.fullName;
+            deployResult.Component_FullName__c = result.fullName;
+            deployResult.Component_Type__c = 'CustomMetadata';
+            deployResult.Completed_On__c = System.now();
             
             if (!result.success && result.errors != null) {
                 String errorMsg = '';
                 for (MetadataService.Error error : result.errors) {
                     errorMsg += error.statusCode + ': ' + error.message + '\n';
                 }
-                deployResult.Error_Message__c = errorMsg.left(255);
+                deployResult.Problem__c = errorMsg.left(255);
                 deployResult.Error_Count__c = result.errors.size();
             }
             

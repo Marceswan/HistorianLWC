@@ -202,6 +202,7 @@ export default class LibrarianLwc extends LightningElement {
             
             console.log('RootConfig object created:', JSON.stringify(rootConfig));
             console.log('Calling Apex upsertRoot with rootConfig as input parameter');
+            console.log('About to call upsertRoot with params:', { input: rootConfig });
             
             // Call Apex method with explicit parameter name
             const result = await upsertRoot({ input: rootConfig });
