@@ -15,6 +15,8 @@ import getRecordTypes from '@salesforce/apex/HistorianAdminController.getRecordT
 import ensureHistorianPermissions from '@salesforce/apex/HistorianPermissionService.ensureHistorianPermissions';
 import assignPermissionSetToAllUsers from '@salesforce/apex/HistorianPermissionService.assignPermissionSetToAllUsers';
 import getHistorianPermissionsInfo from '@salesforce/apex/HistorianPermissionService.getHistorianPermissionsInfo';
+import getObjectSummaries from '@salesforce/apex/HistorianConfigAdminService.getObjectSummaries';
+import deployTriggerForObject from '@salesforce/apex/HistorianConfigAdminService.deployTriggerForObject';
 
 export default class LibrarianLwc extends LightningElement {
     @track objectApi = '';
@@ -22,6 +24,10 @@ export default class LibrarianLwc extends LightningElement {
     @track jobId;
     @track loading = false;
     @track configs = [];
+    @track filteredConfigs = [];
+    @track objectSummaries = [];
+    @track realObjectSummaries = [];
+    @track selectedObjectFilter = null;
     @track recordTypeOptions = [];
     @track selectedRecordTypes = [];
     @track columns = [
@@ -39,12 +45,19 @@ export default class LibrarianLwc extends LightningElement {
                     { label: 'Manage Fields', name: 'fields', iconName: 'utility:list' },
                     { label: 'Deactivate', name: 'delete', iconName: 'utility:delete' }
                 ],
-                menuAlignment: 'right'
+                menuAlignment: 'auto'  // Auto positioning works better with overflow fixes
             }
         }
     ];
 
     @track recent = [];
+    
+    // Track datatable reference for dropdown positioning
+    datatableElement;
+    dropdownObserver;
+    
+    // Track deployment status per object
+    @track deployInProgress = new Set();
     @track recentColumns = [
         { label: 'When', fieldName: 'when', type: 'date', typeAttributes: { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' } },
         { label: 'Status', fieldName: 'status', cellAttributes: { class: { fieldName: 'statusClass' } } },
@@ -69,6 +82,10 @@ export default class LibrarianLwc extends LightningElement {
                 _raw: c
             }));
             console.log('Configs after mapping:', JSON.stringify(this.configs));
+            
+            // Generate object summaries and apply filtering
+            this.generateObjectSummaries();
+            this.applyObjectFilter();
         }
         // eslint-disable-next-line no-console
         if (error) console.error(error);
@@ -210,6 +227,8 @@ export default class LibrarianLwc extends LightningElement {
     refresh() {
         // Trigger wire to refresh by poking objectApi reactive param
         const v = this.objectApi; this.objectApi = ''; this.objectApi = v;
+        // Also refresh real object summaries
+        this.loadRealObjectSummaries();
     }
 
     openRemoteSite() {
@@ -222,9 +241,30 @@ export default class LibrarianLwc extends LightningElement {
     handleRowAction(event) {
         const action = event.detail.action.name;
         const row = event.detail.row;
+        
+        // Apply additional dropdown fixes when row actions are triggered
+        setTimeout(() => {
+            this.applyEmergencyDropdownFix();
+        }, 50);
+        
         if (action === 'edit') this.openRootModal(row._raw);
         if (action === 'delete') this.removeRoot(row._raw);
         if (action === 'fields') this.openFieldsModal(row._raw);
+    }
+    
+    // Emergency dropdown fix for edge cases
+    applyEmergencyDropdownFix() {
+        try {
+            // Find all currently visible dropdowns and fix their positioning
+            const dropdowns = this.template.querySelectorAll('.slds-dropdown');
+            dropdowns.forEach(dropdown => {
+                if (dropdown.offsetParent !== null) { // Only fix visible dropdowns
+                    this.fixDropdownPosition(dropdown);
+                }
+            });
+        } catch (error) {
+            console.error('Error in emergency dropdown fix:', error);
+        }
     }
 
     // Root modal state
@@ -269,6 +309,273 @@ export default class LibrarianLwc extends LightningElement {
         this.loadRecent();
         // Load all available object APIs to help user discover existing configs
         this.loadAvailableObjects();
+        // Load real object summaries from Apex
+        this.loadRealObjectSummaries();
+        
+        // Setup dropdown overflow fix
+        this.setupDropdownOverflowFix();
+        
+        // Setup mutation observer for dynamic dropdown detection
+        this.setupDropdownObserver();
+    }
+    
+    disconnectedCallback() {
+        // Clean up mutation observer
+        if (this.dropdownObserver) {
+            this.dropdownObserver.disconnect();
+        }
+    }
+    
+    renderedCallback() {
+        // Re-apply dropdown fixes after each render
+        this.setupDropdownOverflowFix();
+    }
+    
+    // Handle datatable load event
+    handleDatatableLoad(event) {
+        this.datatableElement = event.target;
+        this.setupDropdownOverflowFix();
+    }
+    
+    // Setup comprehensive dropdown overflow fix
+    setupDropdownOverflowFix() {
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+            this.applyDropdownFixes();
+        });
+    }
+    
+    // Apply dropdown positioning fixes
+    applyDropdownFixes() {
+        try {
+            const datatable = this.template.querySelector('lightning-datatable');
+            if (!datatable) return;
+            
+            // Find all dropdown containers within the datatable
+            const dropdownContainers = datatable.querySelectorAll('.slds-dropdown-trigger, .slds-dropdown-trigger_click, .slds-dropdown-trigger--click');
+            
+            dropdownContainers.forEach(container => {
+                // Remove any existing event listeners to prevent duplicates
+                const clonedContainer = container.cloneNode(true);
+                container.parentNode.replaceChild(clonedContainer, container);
+                
+                // Add click event listener to handle dropdown positioning
+                clonedContainer.addEventListener('click', (event) => {
+                    // Wait for dropdown to be created
+                    setTimeout(() => {
+                        this.positionDropdown(clonedContainer);
+                    }, 0);
+                });
+                
+                // Also listen for mousedown as backup
+                clonedContainer.addEventListener('mousedown', (event) => {
+                    setTimeout(() => {
+                        this.positionDropdown(clonedContainer);
+                    }, 0);
+                });
+            });
+            
+            // Apply overflow fixes to all potential clipping containers
+            this.applyOverflowFixes(datatable);
+            
+        } catch (error) {
+            console.error('Error setting up dropdown fixes:', error);
+        }
+    }
+    
+    // Position dropdown to prevent clipping
+    positionDropdown(triggerElement) {
+        try {
+            const dropdown = triggerElement.querySelector('.slds-dropdown');
+            if (!dropdown) return;
+            
+            // Get trigger button position
+            const triggerRect = triggerElement.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            // Calculate optimal position
+            const dropdownWidth = dropdown.offsetWidth || 200; // fallback width
+            const dropdownHeight = dropdown.offsetHeight || 150; // fallback height
+            
+            // Determine horizontal position
+            let left = triggerRect.left;
+            let right = 'auto';
+            
+            // If dropdown would go off right edge, position from right
+            if (triggerRect.left + dropdownWidth > viewportWidth - 20) {
+                left = 'auto';
+                right = viewportWidth - triggerRect.right + 'px';
+            } else {
+                left = triggerRect.left + 'px';
+            }
+            
+            // Determine vertical position
+            let top = triggerRect.bottom + 'px';
+            
+            // If dropdown would go off bottom edge, position above trigger
+            if (triggerRect.bottom + dropdownHeight > viewportHeight - 20) {
+                top = (triggerRect.top - dropdownHeight) + 'px';
+            }
+            
+            // Apply positioning
+            dropdown.style.position = 'fixed';
+            dropdown.style.left = left;
+            dropdown.style.right = right;
+            dropdown.style.top = top;
+            dropdown.style.zIndex = '99999';
+            dropdown.style.maxHeight = '50vh';
+            dropdown.style.overflowY = 'auto';
+            
+            // Ensure dropdown is visible
+            dropdown.style.opacity = '1';
+            dropdown.style.visibility = 'visible';
+            
+        } catch (error) {
+            console.error('Error positioning dropdown:', error);
+        }
+    }
+    
+    // Apply overflow fixes to datatable containers
+    applyOverflowFixes(datatable) {
+        try {
+            // Target all potential clipping containers
+            const selectors = [
+                '.slds-table_header-fixed_container',
+                '.slds-table--header-fixed_container',
+                '.slds-scrollable_x',
+                '.slds-scrollable_y',
+                '.slds-scrollable',
+                '.slds-table_bordered',
+                '.slds-table--bordered',
+                '.slds-table',
+                '.slds-table_resizable-cols',
+                '.slds-table--resizable-cols'
+            ];
+            
+            selectors.forEach(selector => {
+                const elements = datatable.querySelectorAll(selector);
+                elements.forEach(element => {
+                    element.style.overflow = 'visible';
+                    element.style.position = 'relative';
+                });
+            });
+            
+            // Apply to the datatable itself
+            datatable.style.overflow = 'visible';
+            datatable.style.position = 'relative';
+            
+            // Find and fix action cells specifically
+            const actionCells = datatable.querySelectorAll('td:last-child, th:last-child');
+            actionCells.forEach(cell => {
+                cell.style.overflow = 'visible';
+                cell.style.position = 'relative';
+                cell.style.zIndex = '10';
+            });
+            
+        } catch (error) {
+            console.error('Error applying overflow fixes:', error);
+        }
+    }
+    
+    // Setup mutation observer to detect dynamically created dropdowns
+    setupDropdownObserver() {
+        try {
+            // Clean up existing observer
+            if (this.dropdownObserver) {
+                this.dropdownObserver.disconnect();
+            }
+            
+            const datatable = this.template.querySelector('lightning-datatable');
+            if (!datatable) return;
+            
+            this.dropdownObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                // Check if the added node is a dropdown or contains a dropdown
+                                const dropdown = node.classList && node.classList.contains('slds-dropdown') 
+                                    ? node 
+                                    : node.querySelector && node.querySelector('.slds-dropdown');
+                                
+                                if (dropdown) {
+                                    // Apply positioning fix to newly created dropdown
+                                    setTimeout(() => {
+                                        this.fixDropdownPosition(dropdown);
+                                    }, 0);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Start observing the datatable for DOM changes
+            this.dropdownObserver.observe(datatable, {
+                childList: true,
+                subtree: true,
+                attributes: false
+            });
+            
+        } catch (error) {
+            console.error('Error setting up dropdown observer:', error);
+        }
+    }
+    
+    // Fix position of a specific dropdown element
+    fixDropdownPosition(dropdown) {
+        try {
+            // Find the trigger element for this dropdown
+            const trigger = dropdown.closest('.slds-dropdown-trigger') || 
+                          dropdown.closest('.slds-dropdown-trigger_click') ||
+                          dropdown.closest('.slds-dropdown-trigger--click');
+            
+            if (trigger) {
+                const triggerRect = trigger.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                
+                // Calculate dropdown dimensions
+                const dropdownWidth = dropdown.offsetWidth || 200;
+                const dropdownHeight = dropdown.offsetHeight || 150;
+                
+                // Position dropdown using fixed positioning
+                let left = triggerRect.left;
+                let right = 'auto';
+                let top = triggerRect.bottom;
+                
+                // Adjust horizontal position if dropdown would overflow
+                if (triggerRect.left + dropdownWidth > viewportWidth - 20) {
+                    left = 'auto';
+                    right = (viewportWidth - triggerRect.right) + 'px';
+                } else {
+                    left = triggerRect.left + 'px';
+                }
+                
+                // Adjust vertical position if dropdown would overflow
+                if (triggerRect.bottom + dropdownHeight > viewportHeight - 20) {
+                    top = triggerRect.top - dropdownHeight;
+                }
+                
+                // Apply styles
+                dropdown.style.position = 'fixed';
+                dropdown.style.left = left;
+                dropdown.style.right = right;
+                dropdown.style.top = top + 'px';
+                dropdown.style.zIndex = '99999';
+                dropdown.style.maxHeight = '50vh';
+                dropdown.style.overflowY = 'auto';
+                dropdown.style.opacity = '1';
+                dropdown.style.visibility = 'visible';
+                
+                // Prevent dropdown from being clipped
+                dropdown.style.clipPath = 'none';
+                dropdown.style.webkitClipPath = 'none';
+            }
+        } catch (error) {
+            console.error('Error fixing dropdown position:', error);
+        }
     }
     
     async checkRemoteSiteReadiness() {
@@ -301,10 +608,31 @@ export default class LibrarianLwc extends LightningElement {
                         _raw: c
                     }));
                     console.log('Loaded all configs:', this.configs.length);
+                    
+                    // Generate object summaries and apply filtering
+                    this.generateObjectSummaries();
+                    this.applyObjectFilter();
                 }
             }
         } catch (e) {
             console.error('Error loading all configs:', e);
+        }
+    }
+
+    // Load real object summaries from Apex instead of using mock data
+    async loadRealObjectSummaries() {
+        try {
+            console.log('Loading real object summaries from Apex...');
+            const realSummaries = await getObjectSummaries();
+            this.realObjectSummaries = realSummaries || [];
+            console.log('Loaded real object summaries:', this.realObjectSummaries);
+            
+            // Refresh object summaries to use real data
+            this.generateObjectSummaries();
+        } catch (error) {
+            console.error('Error loading real object summaries:', error);
+            // Fallback to existing behavior if there's an error
+            this.realObjectSummaries = [];
         }
     }
     openRootModal(raw) {
@@ -495,6 +823,7 @@ export default class LibrarianLwc extends LightningElement {
             this.showRoot = false;
             await this.pollConfigs(8, 800);
             await this.loadRecent();
+            await this.loadRealObjectSummaries();
         } catch (e) {
             console.error('Error in saveRoot:', e);
             this.handleSaveError(e);
@@ -684,6 +1013,14 @@ export default class LibrarianLwc extends LightningElement {
         return Array.isArray(this.configs) && this.configs.length > 0;
     }
 
+    get hasFilteredConfigs() {
+        return Array.isArray(this.filteredConfigs) && this.filteredConfigs.length > 0;
+    }
+
+    get hasObjectSummaries() {
+        return Array.isArray(this.objectSummaries) && this.objectSummaries.length > 0;
+    }
+
     get hasRecordTypes() {
         const hasTypes = Array.isArray(this.recordTypeOptions) && this.recordTypeOptions.length > 0;
         console.log('hasRecordTypes computed:', hasTypes, 'recordTypeOptions:', this.recordTypeOptions);
@@ -693,9 +1030,206 @@ export default class LibrarianLwc extends LightningElement {
     get showEmptyState() {
         return !this.loading && !this.hasConfigs;
     }
-    get showTable() {
-        return !this.loading && this.hasConfigs;
+    
+    get showObjectSummaries() {
+        return !this.loading && this.hasObjectSummaries;
     }
+    
+    get showTable() {
+        return !this.loading && (this.hasFilteredConfigs || this.selectedObjectFilter);
+    }
+
+    get filteredConfigsCount() {
+        return this.filteredConfigs ? this.filteredConfigs.length : 0;
+    }
+
+    get totalConfigsCount() {
+        return this.configs ? this.configs.length : 0;
+    }
+
+    // Generate object summaries from current configs using real deployment data
+    generateObjectSummaries() {
+        if (!this.configs || this.configs.length === 0) {
+            this.objectSummaries = [];
+            return;
+        }
+
+        // Group configurations by object
+        const objectGroups = {};
+        this.configs.forEach(config => {
+            const objectName = config.objectApi;
+            if (!objectGroups[objectName]) {
+                objectGroups[objectName] = [];
+            }
+            objectGroups[objectName].push(config);
+        });
+
+        // Generate summaries for each object
+        this.objectSummaries = Object.keys(objectGroups).map(objectName => {
+            const objectConfigs = objectGroups[objectName];
+            const activeConfigs = objectConfigs.filter(c => c._raw.active !== false);
+            
+            // Calculate record types count from configs
+            const recordTypesSet = new Set();
+            objectConfigs.forEach(config => {
+                if (config._raw.recordTypes && config._raw.recordTypes.length > 0) {
+                    config._raw.recordTypes.split(',').forEach(rt => recordTypesSet.add(rt.trim()));
+                }
+            });
+            
+            // Get real deployment data from the Apex service
+            const realData = this.getRealObjectData(objectName);
+            
+            const deployInProgress = this.deployInProgress.has(objectName);
+            
+            return {
+                objectApiName: objectName,
+                activeConfigsCount: activeConfigs.length,
+                totalConfigsCount: objectConfigs.length,
+                activeRecordTypesCount: recordTypesSet.size || realData.recordTypesCount,
+                hasTriggerDeployed: realData.triggerDeployed,
+                hasHistoryObject: realData.historyObjectExists,
+                lastUpdated: this.getLatestUpdateTime(objectConfigs),
+                isSelected: this.selectedObjectFilter === objectName,
+                deployInProgress: deployInProgress,
+                deployButtonLabel: deployInProgress ? 'Deploying...' : 
+                    (realData.triggerDeployed ? 'Redeploy Trigger' : 'Deploy Trigger')
+            };
+        });
+
+        console.log('Generated object summaries with real data:', this.objectSummaries);
+    }
+
+    // Get real deployment data from Apex service instead of mock data
+    getRealObjectData(objectName) {
+        // Find the real summary data for this object from the Apex service
+        const realSummary = this.realObjectSummaries.find(summary => 
+            summary.objectApiName === objectName
+        );
+        
+        if (realSummary) {
+            return {
+                triggerDeployed: realSummary.triggerDeployed || false,
+                historyObjectExists: realSummary.historyObjectExists || false,
+                recordTypesCount: realSummary.totalRecordTypes || 0
+            };
+        }
+        
+        // Fallback if no real data found - use conservative defaults
+        return {
+            triggerDeployed: false,
+            historyObjectExists: false, 
+            recordTypesCount: 0
+        };
+    }
+
+    // Get the latest update time from a group of configs
+    getLatestUpdateTime(configs) {
+        if (!configs || configs.length === 0) return new Date();
+        
+        let latestTime = new Date(0); // Start with epoch
+        configs.forEach(config => {
+            if (config._raw.lastModifiedDate) {
+                const configTime = new Date(config._raw.lastModifiedDate);
+                if (configTime > latestTime) {
+                    latestTime = configTime;
+                }
+            }
+        });
+        
+        // If no real date found, return a recent mock date
+        return latestTime.getTime() === 0 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000) : latestTime;
+    }
+
+    // Apply object filter to configurations
+    applyObjectFilter() {
+        if (!this.selectedObjectFilter) {
+            this.filteredConfigs = [...this.configs];
+        } else {
+            this.filteredConfigs = this.configs.filter(config => 
+                config.objectApi === this.selectedObjectFilter
+            );
+        }
+        console.log('Applied filter:', this.selectedObjectFilter, 'Filtered configs:', this.filteredConfigs.length);
+    }
+
+    // Handle clicking on an object summary card
+    handleObjectCardClick(event) {
+        const objectName = event.currentTarget.dataset.object;
+        
+        if (this.selectedObjectFilter === objectName) {
+            // Clicking on already selected card clears the filter
+            this.selectedObjectFilter = null;
+        } else {
+            // Set new filter
+            this.selectedObjectFilter = objectName;
+        }
+        
+        // Regenerate summaries to update selected state
+        this.generateObjectSummaries();
+        this.applyObjectFilter();
+        
+        // Scroll to table if filtering
+        if (this.selectedObjectFilter) {
+            setTimeout(() => {
+                const tableElement = this.template.querySelector('.slds-card:last-child');
+                if (tableElement) {
+                    tableElement.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 100);
+        }
+    }
+
+    // Clear object filter
+    clearObjectFilter() {
+        this.selectedObjectFilter = null;
+        this.generateObjectSummaries();
+        this.applyObjectFilter();
+    }
+
+    // Handle deploy trigger button click
+    async handleDeployTrigger(event) {
+        const objectApiName = event.target.dataset.objectApi;
+        
+        if (!objectApiName) {
+            this.toast('Error', 'Object API name not found', 'error');
+            return;
+        }
+
+        try {
+            this.deployInProgress.add(objectApiName);
+            this.generateObjectSummaries(); // Refresh to show loading state
+
+            this.toast('Deploy Started', 
+                `Deploying historian trigger for ${objectApiName}. This may take a few minutes.`, 
+                'info');
+
+            // Call real Apex method to deploy the trigger
+            const jobId = await deployTriggerForObject({ objectApiName: objectApiName });
+            console.log('Trigger deployment job started with ID:', jobId);
+
+            this.deployInProgress.delete(objectApiName);
+            this.generateObjectSummaries(); // Refresh to hide loading state
+
+            this.toast('Deploy Complete', 
+                `Historian trigger deployment for ${objectApiName} has been queued (Job ID: ${jobId.substring(0, 15)}...).`, 
+                'success');
+
+            // Refresh the recent deployment activity and object summaries
+            await this.loadRecent();
+            await this.loadRealObjectSummaries();
+
+        } catch (error) {
+            this.deployInProgress.delete(objectApiName);
+            this.generateObjectSummaries();
+            
+            const errorMsg = this.errorMessage(error);
+            this.toast('Deploy Failed', 
+                `Failed to deploy trigger for ${objectApiName}: ${errorMsg}`, 
+                'error');
+        }
+    }
+
 
     async loadRecent() {
         try {
