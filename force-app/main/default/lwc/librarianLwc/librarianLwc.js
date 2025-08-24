@@ -22,11 +22,11 @@ export default class LibrarianLwc extends LightningElement {
     @track recordTypeOptions = [];
     @track selectedRecordTypes = [];
     @track columns = [
-        { label: 'Config Name', fieldName: 'configName', type: 'text', fixedWidth: 150 },
-        { label: 'Object', fieldName: 'objectApi', type: 'text', fixedWidth: 120 },
-        { label: 'Mode', fieldName: 'mode', type: 'text', fixedWidth: 100 },
-        { label: 'Style', fieldName: 'style', type: 'text', fixedWidth: 100 },
-        { label: 'Fields', fieldName: 'fields', type: 'text', fixedWidth: 80 },
+        { label: 'Config Name', fieldName: 'configName', type: 'text' },
+        { label: 'Object', fieldName: 'objectApi', type: 'text' },
+        { label: 'Mode', fieldName: 'mode', type: 'text' },
+        { label: 'Style', fieldName: 'style', type: 'text' },
+        { label: 'Fields', fieldName: 'fields', type: 'text' },
         { 
             type: 'action', 
             fixedWidth: 120,
