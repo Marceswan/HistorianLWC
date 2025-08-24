@@ -128,21 +128,34 @@ public with sharing class HistorianConfigAdminService {
             input.label = input.configName;
         }
         
-        // Upsert via Apex Metadata API for CustomMetadata
-        Metadata.CustomMetadata cmd = new Metadata.CustomMetadata();
-        cmd.fullName = 'Historian_Config__mdt.' + input.developerName;
-        cmd.label = input.label;
-        cmd.values = new List<Metadata.CustomMetadataValue>();
-        cmd.values.add(newKV('Config_Name__c', input.configName));
-        cmd.values.add(newKV('Object_Api_Name__c', input.objectApiName));
-        cmd.values.add(newKV('Tracking_Style__c', input.trackingStyle));
-        cmd.values.add(newKV('Track_Mode__c', input.trackMode));
-        cmd.values.add(newKV('Active__c', input.active));
-        cmd.values.add(newKV('History_Object_Api__c', input.historyObjectApi));
-        Metadata.DeployContainer dc = new Metadata.DeployContainer();
-        dc.addMetadata(cmd);
-        Id reqId = Metadata.Operations.enqueueDeployment(dc, new HistorianDeployCallback());
-        input.requestId = String.valueOf(reqId);
+        // Upsert via MD-API wrapper for CustomMetadata
+        try {
+            MetadataService.MetadataPort service = MdapiUtil.newService();
+            MetadataService.CustomMetadata cmd = new MetadataService.CustomMetadata();
+            cmd.fullName = 'Historian_Config__mdt.' + input.developerName;
+            cmd.label = input.label;
+            cmd.protected_x = false;
+            cmd.values = new List<MetadataService.CustomMetadataValue>();
+            cmd.values.add(newMdapiKV('Config_Name__c', input.configName));
+            cmd.values.add(newMdapiKV('Object_Api_Name__c', input.objectApiName));
+            cmd.values.add(newMdapiKV('Tracking_Style__c', input.trackingStyle));
+            cmd.values.add(newMdapiKV('Track_Mode__c', input.trackMode));
+            cmd.values.add(newMdapiKV('Active__c', String.valueOf(input.active)));
+            cmd.values.add(newMdapiKV('History_Object_Api__c', input.historyObjectApi));
+            
+            List<MetadataService.UpsertResult> results = service.upsertMetadata(
+                new MetadataService.Metadata[] { cmd }
+            );
+            
+            // Handle results and create deploy result record
+            handleMdapiResults(results, 'Historian Config Creation');
+            input.requestId = 'mdapi-' + System.now().getTime();
+            
+        } catch (Exception e) {
+            System.debug('MD-API CMDT Creation Error: ' + e.getMessage());
+            throw new AuraHandledException('Failed to create config: ' + e.getMessage());
+        }
+        
         return input;
     }
 
@@ -206,5 +219,36 @@ public with sharing class HistorianConfigAdminService {
             v.value = String.valueOf(value);
         }
         return v;
+    }
+    
+    private static MetadataService.CustomMetadataValue newMdapiKV(String field, String value) {
+        MetadataService.CustomMetadataValue v = new MetadataService.CustomMetadataValue();
+        v.field = field;
+        v.value = value;
+        return v;
+    }
+    
+    private static void handleMdapiResults(List<MetadataService.UpsertResult> results, String operation) {
+        for (MetadataService.UpsertResult result : results) {
+            Historian_Deploy_Result__c deployResult = new Historian_Deploy_Result__c();
+            deployResult.Status__c = result.success ? 'Succeeded' : 'Failed';
+            deployResult.Operation__c = operation;
+            deployResult.Component_Full_Name__c = result.fullName;
+            
+            if (!result.success && result.errors != null) {
+                String errorMsg = '';
+                for (MetadataService.Error error : result.errors) {
+                    errorMsg += error.statusCode + ': ' + error.message + '\n';
+                }
+                deployResult.Error_Message__c = errorMsg.left(255);
+                deployResult.Error_Count__c = result.errors.size();
+            }
+            
+            try {
+                insert deployResult;
+            } catch (Exception e) {
+                System.debug('Failed to insert deploy result: ' + e.getMessage());
+            }
+        }
     }
 }
