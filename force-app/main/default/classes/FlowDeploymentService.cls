@@ -153,20 +153,90 @@ public with sharing class FlowDeploymentService {
     }
     
     /**
-     * Deploy Flow directly using Metadata API
+     * Deploy Flow directly using Metadata API with proper Flow creation
      */
     private static String deployFlowDirectly(String flowName, String objectApiName) {
         System.debug('Creating Flow metadata for: ' + flowName);
         
-        // Create basic Flow XML content
-        String flowXml = buildFlowXml(flowName, objectApiName);
+        try {
+            // Use MetadataService to deploy the Flow
+            MetadataService.MetadataPort service = MdapiUtil.newService();
+            
+            // Create the Flow metadata with proper structure
+            MetadataService.Flow historianFlow = buildHistorianFlowMetadata(flowName, objectApiName);
+            
+            System.debug('Deploying Flow via Metadata API: ' + flowName);
+            
+            // Deploy the Flow using createMetadata
+            List<MetadataService.Metadata> toCreateFlow = new List<MetadataService.Metadata>{historianFlow};
+            MetadataService.SaveResult[] flowResults = service.createMetadata(toCreateFlow);
+            
+            if (flowResults != null && flowResults.size() > 0) {
+                MetadataService.SaveResult result = flowResults[0];
+                if (result.success) {
+                    System.debug('Successfully created Flow: ' + result.fullName);
+                    return 'Flow successfully deployed: ' + result.fullName;
+                } else {
+                    String errorMessages = '';
+                    if (result.errors != null) {
+                        for (MetadataService.Error err : result.errors) {
+                            System.debug('Flow Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
+                            errorMessages += err.message + ' (' + err.statusCode + '); ';
+                        }
+                    }
+                    throw new AuraHandledException('Flow deployment failed: ' + errorMessages);
+                }
+            } else {
+                throw new AuraHandledException('No results returned from Flow deployment');
+            }
+            
+        } catch (Exception e) {
+            System.debug('Exception during direct Flow deployment: ' + e.getMessage());
+            System.debug('Exception stack trace: ' + e.getStackTraceString());
+            throw new AuraHandledException('Flow deployment error: ' + e.getMessage());
+        }
+    }
+    
+    /**
+     * Build proper Flow metadata object for deployment
+     */
+    private static MetadataService.Flow buildHistorianFlowMetadata(String flowName, String objectApiName) {
+        MetadataService.Flow flow = new MetadataService.Flow();
+        flow.fullName = flowName;
+        flow.description = 'Auto-generated Record-Triggered Flow to capture field changes for ' + objectApiName + ' using Historian';
+        flow.label = objectApiName + ' Historian Flow';
+        flow.processType = 'AutoLaunchedFlow';
         
-        // Use a simplified deployment approach - create a Flow record directly
-        // Note: This is a placeholder for now since we need proper Flow deployment
-        // For now, we'll create a mock deployment record to show it's working
-        System.debug('Flow XML generated for ' + flowName + ': ' + flowXml.length() + ' characters');
+        // Create action call to HistorianHelper.captureHistoricalChanges
+        MetadataService.FlowActionCall actionCall = new MetadataService.FlowActionCall();
+        actionCall.name = 'Capture_Historical_Changes';
+        actionCall.label = 'Capture Historical Changes';
+        actionCall.locationX = 176;
+        actionCall.locationY = 287;
+        actionCall.actionName = 'HistorianHelper';
+        actionCall.actionType = 'apex';
         
-        return 'Flow deployment initiated for ' + flowName;
+        // Set up input parameters for the HistorianHelper.captureHistoricalChanges method
+        List<MetadataService.FlowActionCallInputParameter> inputParams = new List<MetadataService.FlowActionCallInputParameter>();
+        
+        // targetRecordId parameter
+        MetadataService.FlowActionCallInputParameter recordIdParam = new MetadataService.FlowActionCallInputParameter();
+        recordIdParam.name = 'targetRecordId';
+        recordIdParam.value = new MetadataService.FlowElementReferenceOrValue();
+        recordIdParam.value.elementReference = '$Record.Id';
+        inputParams.add(recordIdParam);
+        
+        // targetSObjectApiName parameter  
+        MetadataService.FlowActionCallInputParameter sObjectParam = new MetadataService.FlowActionCallInputParameter();
+        sObjectParam.name = 'targetSObjectApiName';
+        sObjectParam.value = new MetadataService.FlowElementReferenceOrValue();
+        sObjectParam.value.stringValue = objectApiName;
+        inputParams.add(sObjectParam);
+        
+        actionCall.inputParameters = inputParams;
+        flow.actionCalls = new List<MetadataService.FlowActionCall>{actionCall};
+        
+        return flow;
     }
     
     /**

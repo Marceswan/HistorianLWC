@@ -288,11 +288,31 @@ export default class LibrarianLwc extends LightningElement {
         // Default to enabled since upsertRoot handles remote site deployment automatically
         this.mdapiReady = true;
         
-        this.loadRecent();
-        // Load all available object APIs to help user discover existing configs
-        this.loadAvailableObjects();
-        // Load real object summaries from Apex
-        this.loadRealObjectSummaries();
+        this.refreshAllData();
+        
+        // Set up auto-refresh for more reactive UI
+        this.refreshInterval = setInterval(() => {
+            this.refreshAllData();
+        }, 5000); // 5 seconds for responsive updates
+    }
+    
+    disconnectedCallback() {
+        // Clean up interval when component is destroyed
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+        }
+    }
+    
+    async refreshAllData() {
+        try {
+            await Promise.all([
+                this.loadRecent(),
+                this.loadAvailableObjects(),
+                this.loadRealObjectSummaries()
+            ]);
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        }
     }
     
     async loadAvailableObjects() {
