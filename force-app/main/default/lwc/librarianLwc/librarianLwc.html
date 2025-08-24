@@ -22,11 +22,16 @@
                 </div>
             </template>
             <template if:true={loading}>
-                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                <div class="slds-grid slds-grid_align-center slds-m-bottom_small">
+                    <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                    <template if:true={progressMessage}>
+                        <span class="slds-text-body_small slds-m-left_small">{progressMessage}</span>
+                    </template>
+                </div>
             </template>
             <template if:true={showEmptyState}>
                 <p class="slds-text-title_caps">No configurations found</p>
-                <p class="slds-text-body_small">Enter an SObject API above and click "New Config" to create one.</p>
+                <p class="slds-text-body_small">Enter an SObject API above (e.g., "Opportunity", "Account", "Contact") and click "New Config" to create one.</p>
             </template>
             <template if:true={showTable}>
                 <lightning-datatable key-field="id" data={configs} columns={columns} hide-checkbox-column onrowaction={handleRowAction}></lightning-datatable>
@@ -45,17 +50,45 @@
             <div class="slds-modal__container">
                 <header class="slds-modal__header"><h2 class="slds-modal__title">Config</h2></header>
                 <div class="slds-modal__content slds-p-around_medium">
-                    <lightning-input data-field="developerName" label="Developer Name" value={rootForm.developerName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
-                    <lightning-input data-field="label" label="Label" value={rootForm.label} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
+                    <lightning-input data-field="developerName" label="Developer Name (Read-only)" value={rootForm.developerName} readonly autocomplete="off"></lightning-input>
+                    <lightning-input data-field="label" label="Label (Read-only)" value={rootForm.label} readonly autocomplete="off"></lightning-input>
                     <lightning-input data-field="configName" label="Config Name *" value={rootForm.configName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
                     <lightning-input data-field="objectApiName" label="Object API Name *" value={rootForm.objectApiName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
                     <lightning-combobox label="Track Mode" value={rootForm.trackMode} options={modeOptions} onchange={handleRootModeChange}></lightning-combobox>
                     <lightning-combobox label="Style" value={rootForm.trackingStyle} options={styleOptions} onchange={handleRootStyleChange}></lightning-combobox>
+                    <template if:true={hasRecordTypes}>
+                        <lightning-dual-listbox
+                            label="Record Types"
+                            source-label="Available Record Types"
+                            selected-label="Selected Record Types"
+                            options={recordTypeOptions}
+                            value={selectedRecordTypes}
+                            onchange={handleRecordTypeChange}
+                            field-level-help="Select record types to track. Choose 'All Record Types' to include all current and future record types for this object.">
+                        </lightning-dual-listbox>
+                    </template>
+                    <template if:false={hasRecordTypes}>
+                        <div class="slds-form-element">
+                            <label class="slds-form-element__label">Record Types</label>
+                            <div class="slds-form-element__control">
+                                <div class="slds-text-body_small slds-text-color_weak slds-p-around_small slds-border_bottom">
+                                    No record types available for this object
+                                </div>
+                            </div>
+                            <div class="slds-form-element__help">This object does not have any record types defined.</div>
+                        </div>
+                    </template>
                     <lightning-input type="checkbox" label="Active" checked={rootForm.active} onchange={handleRootActiveChange}></lightning-input>
                 </div>
                 <footer class="slds-modal__footer">
-                    <lightning-button label="Cancel" onclick={closeRoot}></lightning-button>
-                    <lightning-button variant="brand" label="Save" onclick={saveRoot} class="slds-m-left_small"></lightning-button>
+                    <template if:true={isShowingProgress}>
+                        <div class="slds-text-align_left slds-m-right_auto">
+                            <lightning-spinner alternative-text="Processing" size="small" variant="inline"></lightning-spinner>
+                            <span class="slds-text-body_small slds-m-left_small">{progressMessage}</span>
+                        </div>
+                    </template>
+                    <lightning-button label="Cancel" onclick={closeRoot} disabled={loading}></lightning-button>
+                    <lightning-button variant="brand" label="Save" onclick={saveRoot} class="slds-m-left_small" disabled={loading}></lightning-button>
                 </footer>
             </div>
         </section>

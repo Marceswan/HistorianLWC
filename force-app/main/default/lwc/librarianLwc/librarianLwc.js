@@ -2,6 +2,7 @@ import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import startEnsure from '@salesforce/apex/HistorianAdminController.startEnsureHistorianObject';
 import listConfigs from '@salesforce/apex/HistorianConfigAdminService.listConfigsByObject';
+import listAllConfigs from '@salesforce/apex/HistorianConfigAdminService.listAllConfigs';
 import upsertRoot from '@salesforce/apex/HistorianConfigAdminService.upsertRoot';
 import deleteRoot from '@salesforce/apex/HistorianConfigAdminService.deleteRoot';
 import listFields from '@salesforce/apex/HistorianConfigAdminService.listFields';
@@ -10,6 +11,7 @@ import deleteField from '@salesforce/apex/HistorianConfigAdminService.deleteFiel
 import listRecent from '@salesforce/apex/HistorianConfigAdminService.listRecentDeployResults';
 import mdapiRemoteSiteOk from '@salesforce/apex/HistorianSetupService.mdapiRemoteSiteOk';
 import isHistorianProvisioned from '@salesforce/apex/HistorianAdminController.isHistorianProvisioned';
+import getRecordTypes from '@salesforce/apex/HistorianAdminController.getRecordTypes';
 
 export default class LibrarianLwc extends LightningElement {
     @track objectApi = '';
@@ -17,6 +19,8 @@ export default class LibrarianLwc extends LightningElement {
     @track jobId;
     @track loading = false;
     @track configs = [];
+    @track recordTypeOptions = [];
+    @track selectedRecordTypes = [];
     @track columns = [
         { label: 'Config Name', fieldName: 'configName' },
         { label: 'Object', fieldName: 'objectApi' },
@@ -25,7 +29,7 @@ export default class LibrarianLwc extends LightningElement {
         { type: 'action', typeAttributes: { rowActions: [
             { label: 'Edit', name: 'edit' },
             { label: 'Manage Fields', name: 'fields' },
-            { label: 'Delete', name: 'delete' }
+            { label: 'Deactivate', name: 'delete' }
         ]}}
     ];
 
@@ -60,22 +64,123 @@ export default class LibrarianLwc extends LightningElement {
 
     handleObjectChange(event) {
         this.objectApi = event.target.value;
+        // Clear existing record type selections when object changes
+        this.recordTypeOptions = [];
+        this.selectedRecordTypes = [];
+        // Load record types for the new object
+        this.loadRecordTypes();
         this.refresh();
     }
     handleConfigChange(event) {
         this.configName = event.target.value;
     }
+
+    // Load record types for the current object
+    async loadRecordTypes() {
+        if (!this.objectApi || this.objectApi.trim() === '') {
+            this.recordTypeOptions = [];
+            this.selectedRecordTypes = [];
+            return;
+        }
+
+        try {
+            const recordTypes = await getRecordTypes({ objectApiName: this.objectApi.trim() });
+            this.recordTypeOptions = recordTypes || [];
+            
+            // Default to "All Record Types" if available, otherwise select nothing
+            if (this.recordTypeOptions.length > 0 && 
+                this.recordTypeOptions[0].value === 'ALL_RECORD_TYPES') {
+                this.selectedRecordTypes = ['ALL_RECORD_TYPES'];
+            } else {
+                this.selectedRecordTypes = [];
+            }
+        } catch (error) {
+            console.error('Error loading record types:', error);
+            this.recordTypeOptions = [];
+            this.selectedRecordTypes = [];
+            this.toast('Warning', 'Could not load record types for this object', 'warning');
+        }
+    }
+
+    // Handle record type selection changes
+    handleRecordTypeChange(event) {
+        this.selectedRecordTypes = event.detail.value;
+    }
+
+    // Load record types for editing an existing config
+    async loadRecordTypesForEdit(objectApiName, existingRecordTypes) {
+        try {
+            const recordTypes = await getRecordTypes({ objectApiName: objectApiName });
+            this.recordTypeOptions = recordTypes || [];
+            
+            // Set selected record types based on existing configuration
+            if (existingRecordTypes && typeof existingRecordTypes === 'string' && existingRecordTypes.trim() !== '') {
+                // Convert comma-separated string to array
+                this.selectedRecordTypes = existingRecordTypes.split(',').map(rt => rt.trim()).filter(rt => rt);
+            } else if (existingRecordTypes && Array.isArray(existingRecordTypes) && existingRecordTypes.length > 0) {
+                // Handle if it's already an array
+                this.selectedRecordTypes = existingRecordTypes;
+            } else {
+                // Default to "All Record Types" if no existing selection and it's available
+                if (this.recordTypeOptions.length > 0 && 
+                    this.recordTypeOptions[0].value === 'ALL_RECORD_TYPES') {
+                    this.selectedRecordTypes = ['ALL_RECORD_TYPES'];
+                } else {
+                    this.selectedRecordTypes = [];
+                }
+            }
+        } catch (error) {
+            console.error('Error loading record types for edit:', error);
+            this.recordTypeOptions = [];
+            this.selectedRecordTypes = [];
+        }
+    }
     async ensureHistorian() {
         try {
             this.loading = true;
+            this.showProgressMessage('Ensuring historian object exists...');
+            
+            // Validate inputs
+            if (!this.objectApi || this.objectApi.trim() === '') {
+                this.toast('Error', 'Object API Name is required', 'error');
+                return;
+            }
+            
+            // Check remote site settings first
+            if (this.mdapiReady === false) {
+                this.toast('Remote Site Configuration Required', 
+                    'Remote site settings need to be configured before creating historian objects. Use the "Remote Site Helper" button to configure them.',
+                    'warning');
+                return;
+            }
+            
             this.jobId = await startEnsure({ objectApi: this.objectApi, configName: this.configName });
             this.toast('Historian Job Enqueued', `Job Id: ${this.jobId}`, 'success');
             await this.loadRecent();
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(e);
-            this.toast('Error', this.errorMessage(e), 'error');
-        } finally { this.loading = false; }
+            this.handleEnsureHistorianError(e);
+        } finally { 
+            this.loading = false;
+            this.clearProgressMessage();
+        }
+    }
+    
+    handleEnsureHistorianError(error) {
+        const errorMsg = this.errorMessage(error);
+        
+        if (errorMsg.includes('Remote site')) {
+            this.toast('Remote Site Configuration Required', 
+                'Remote site settings need to be configured. Use the "Remote Site Helper" button.',
+                'error');
+        } else if (errorMsg.includes('does not exist')) {
+            this.toast('Invalid Object', 
+                'The specified object does not exist in this org.',
+                'error');
+        } else {
+            this.toast('Error', errorMsg, 'error');
+        }
     }
 
     refresh() {
@@ -100,7 +205,7 @@ export default class LibrarianLwc extends LightningElement {
 
     // Root modal state
     @track showRoot = false;
-    @track rootForm = { developerName: '', label: '', configName: '', objectApiName: '', trackingStyle: 'Timeline', trackMode: 'AllFields', active: true, historyObjectApi: '' };
+    @track rootForm = { developerName: '', label: '', configName: '', objectApiName: '', trackingStyle: 'Timeline', trackMode: 'AllFields', active: true, historyObjectApi: '', recordTypes: [] };
     modeOptions = [
         { label: 'All Fields', value: 'AllFields' },
         { label: 'Per Field', value: 'PerField' }
@@ -120,48 +225,122 @@ export default class LibrarianLwc extends LightningElement {
             trackingStyle: 'Timeline', 
             trackMode: 'AllFields', 
             active: true, 
-            historyObjectApi: '' 
+            historyObjectApi: '',
+            recordTypes: []
         };
+        
+        // Load record types for the current object if available
+        if (this.objectApi) {
+            this.loadRecordTypes();
+        } else {
+            this.recordTypeOptions = [];
+            this.selectedRecordTypes = [];
+        }
+        
         this.showRoot = true;
     }
     connectedCallback() {
         // Probe mdapi remote site readiness
-        mdapiRemoteSiteOk().then(ok => {
-            this.mdapiReady = ok;
-        }).catch(() => { this.mdapiReady = false; });
+        this.checkRemoteSiteReadiness();
         this.loadRecent();
+        // Load all available object APIs to help user discover existing configs
+        this.loadAvailableObjects();
+    }
+    
+    async checkRemoteSiteReadiness() {
+        try {
+            const ok = await mdapiRemoteSiteOk();
+            this.mdapiReady = ok;
+            if (!ok) {
+                console.warn('Remote site settings not configured - historian object creation will be limited');
+            }
+        } catch (error) {
+            console.error('Error checking remote site settings:', error);
+            this.mdapiReady = false;
+            // Don't show error toast here as this is a background check
+        }
+    }
+    
+    async loadAvailableObjects() {
+        try {
+            // Load all configs when no specific object API is set
+            if (!this.objectApi) {
+                const allConfigs = await listAllConfigs();
+                if (allConfigs && allConfigs.length > 0) {
+                    this.configs = allConfigs.map(c => ({
+                        id: `${c.objectApiName}:${c.configName}`,
+                        configName: c.configName,
+                        objectApi: c.objectApiName,
+                        mode: c.trackMode === 'AllFields' ? 'All Fields' : 'Per Field',
+                        fields: '—',
+                        _raw: c
+                    }));
+                    console.log('Loaded all configs:', this.configs.length);
+                }
+            }
+        } catch (e) {
+            console.error('Error loading all configs:', e);
+        }
     }
     openRootModal(raw) {
         // Debug to see what raw data we're getting
         console.log('Raw data received in openRootModal:', JSON.stringify(raw));
         
-        // When editing, ensure all fields are properly mapped
-        // Create a completely new object to trigger reactivity
+        // When editing, ensure all fields are properly mapped from CMDT values
+        // Map the raw CMDT data to form fields correctly
         const newForm = {
             developerName: raw.developerName || '',
             label: raw.label || '',
             configName: raw.configName || '',
             objectApiName: raw.objectApiName || '',
             trackingStyle: raw.trackingStyle || 'Timeline',
-            trackMode: raw.trackMode || 'AllFields',
+            trackMode: raw.trackMode || 'AllFields', 
             active: raw.active !== undefined ? raw.active : true,
-            historyObjectApi: raw.historyObjectApi || ''
+            historyObjectApi: raw.historyObjectApi || '',
+            recordTypes: raw.recordTypes || []
         };
         
         // Force reactivity by reassigning the entire tracked object
         this.rootForm = { ...newForm };
         
-        console.log('rootForm after mapping:', JSON.stringify(this.rootForm));
+        console.log('rootForm after mapping from CMDT:', JSON.stringify(this.rootForm));
+        console.log('Mapped values - trackingStyle:', this.rootForm.trackingStyle, 'trackMode:', this.rootForm.trackMode);
+        
+        // Load record types for this object and set selected record types
+        if (newForm.objectApiName) {
+            this.loadRecordTypesForEdit(newForm.objectApiName, newForm.recordTypes);
+        } else {
+            this.recordTypeOptions = [];
+            this.selectedRecordTypes = [];
+        }
+        
+        // Check if historian object exists for this config
+        this.checkHistorianObjectExists(raw.objectApiName);
         
         // Add a small delay to ensure DOM updates
         setTimeout(() => {
             this.showRoot = true;
         }, 0);
     }
+    
+    async checkHistorianObjectExists(objectApiName) {
+        if (objectApiName) {
+            try {
+                const exists = await isHistorianProvisioned({ objectApi: objectApiName });
+                if (!exists) {
+                    console.log(`Historian object for ${objectApiName} does not exist - will be created on save`);
+                    this.toast('Info', `Historian object for ${objectApiName} will be created when you save`, 'info');
+                }
+            } catch (e) {
+                console.error('Error checking historian object:', e);
+            }
+        }
+    }
     closeRoot() { this.showRoot = false; }
     async saveRoot() {
         try {
             this.loading = true;
+            this.showProgressMessage('Validating configuration...');
             
             // Clear any existing field-level validation errors
             [...this.template.querySelectorAll('lightning-input')]
@@ -172,6 +351,10 @@ export default class LibrarianLwc extends LightningElement {
             console.log('configName type:', typeof this.rootForm.configName);
             console.log('configName value:', this.rootForm.configName);
             console.log('configName length:', this.rootForm.configName ? this.rootForm.configName.length : 'undefined');
+            console.log('objectApiName value:', this.rootForm.objectApiName);
+            console.log('trackingStyle value:', this.rootForm.trackingStyle);
+            console.log('trackMode value:', this.rootForm.trackMode);
+            console.log('active value:', this.rootForm.active);
             
             // Additional validation for trimmed values
             if (!this.rootForm.configName || this.rootForm.configName.trim() === '') {
@@ -184,43 +367,179 @@ export default class LibrarianLwc extends LightningElement {
                 this.toast('Error', 'Object API Name is required', 'error');
                 return;
             }
+
+            // Validate record type selections
+            if (this.selectedRecordTypes && this.selectedRecordTypes.length > 0) {
+                const validRecordTypeValues = (this.recordTypeOptions || []).map(option => option.value);
+                const invalidSelections = this.selectedRecordTypes.filter(selected => 
+                    !validRecordTypeValues.includes(selected)
+                );
+                
+                if (invalidSelections.length > 0) {
+                    console.log('CLIENT VALIDATION FAILED - invalid record type selections:', invalidSelections);
+                    this.toast('Error', `Invalid record type selections: ${invalidSelections.join(', ')}`, 'error');
+                    return;
+                }
+            }
             
             console.log('CLIENT VALIDATION PASSED');
+            
+            // Debug rootForm before creating rootConfig object
+            console.log('rootForm.configName before creation:', this.rootForm.configName);
+            console.log('rootForm.objectApiName before creation:', this.rootForm.objectApiName);
+            console.log('Entire rootForm object:', this.rootForm);
+            
+            // Get form values directly from DOM elements to ensure we have the latest values
+            const configNameInput = this.template.querySelector('lightning-input[data-field="configName"]');
+            const objectApiNameInput = this.template.querySelector('lightning-input[data-field="objectApiName"]');
+            const trackModeCombo = this.template.querySelector('lightning-combobox[label="Track Mode"]');
+            const trackStyleCombo = this.template.querySelector('lightning-combobox[label="Style"]');
+            const activeCheckbox = this.template.querySelector('lightning-input[label="Active"]');
+            
+            console.log('DOM Elements Found:');
+            console.log('configNameInput:', configNameInput);
+            console.log('objectApiNameInput:', objectApiNameInput);
+            console.log('trackModeCombo:', trackModeCombo);
+            console.log('trackStyleCombo:', trackStyleCombo);
+            console.log('activeCheckbox:', activeCheckbox);
+            
+            // Extract values, ensuring we never pass string "null" values
+            const configNameValue = configNameInput && configNameInput.value ? configNameInput.value.trim() : 
+                                   (this.rootForm.configName && this.rootForm.configName !== 'null' ? this.rootForm.configName.trim() : '');
+            const objectApiNameValue = objectApiNameInput && objectApiNameInput.value ? objectApiNameInput.value.trim() : 
+                                      (this.rootForm.objectApiName && this.rootForm.objectApiName !== 'null' ? this.rootForm.objectApiName.trim() : '');
+            const trackModeValue = trackModeCombo && trackModeCombo.value ? trackModeCombo.value : 
+                                  (this.rootForm.trackMode && this.rootForm.trackMode !== 'null' ? this.rootForm.trackMode : 'AllFields');
+            const trackStyleValue = trackStyleCombo && trackStyleCombo.value ? trackStyleCombo.value : 
+                                   (this.rootForm.trackingStyle && this.rootForm.trackingStyle !== 'null' ? this.rootForm.trackingStyle : 'Timeline');
+            const activeValue = activeCheckbox ? activeCheckbox.checked : (this.rootForm.active === true);
+            
+            console.log('Extracted Values:');
+            console.log('configNameValue:', configNameValue);
+            console.log('objectApiNameValue:', objectApiNameValue);
+            console.log('trackModeValue:', trackModeValue);
+            console.log('trackStyleValue:', trackStyleValue);
+            console.log('activeValue:', activeValue);
             
             // Create a clean object matching the Apex DTO structure
             const rootConfig = {
                 developerName: this.rootForm.developerName || '',
-                label: this.rootForm.label || this.rootForm.configName || 'Default Config',
-                configName: this.rootForm.configName ? this.rootForm.configName.trim() : '',
-                objectApiName: this.rootForm.objectApiName ? this.rootForm.objectApiName.trim() : '',
-                trackingStyle: this.rootForm.trackingStyle || 'Timeline',
-                trackMode: this.rootForm.trackMode || 'AllFields',
-                active: this.rootForm.active !== undefined ? this.rootForm.active : true,
+                label: this.rootForm.label || 'Default Config',
+                configName: configNameValue,
+                objectApiName: objectApiNameValue,
+                trackingStyle: trackStyleValue,
+                trackMode: trackModeValue,
+                active: activeValue,
                 historyObjectApi: this.rootForm.historyObjectApi || '',
                 requestId: null
             };
             
             console.log('RootConfig object created:', JSON.stringify(rootConfig));
             console.log('Calling Apex upsertRoot with rootConfig as input parameter');
-            console.log('About to call upsertRoot with params:', { input: rootConfig });
+            console.log('About to call upsertRoot with params:', JSON.stringify(rootConfig));
             
-            // Call Apex method with explicit parameter name
-            const result = await upsertRoot({ input: rootConfig });
+            this.showProgressMessage('Saving configuration...');
+            
+            // Call Apex method with individual parameters to avoid DTO serialization issues
+            console.log('Final rootConfig for Apex:', JSON.stringify(rootConfig));
+            console.log('configName being sent:', rootConfig.configName);
+            console.log('objectApiName being sent:', rootConfig.objectApiName);
+            
+            // Convert selected record types array to comma-separated string
+            rootConfig.recordTypes = this.selectedRecordTypes.join(',');
+
+            // Call Apex method with individual parameters
+            const result = await upsertRoot({ 
+                configName: rootConfig.configName,
+                objectApiName: rootConfig.objectApiName,
+                trackingStyle: rootConfig.trackingStyle,
+                trackMode: rootConfig.trackMode,
+                active: rootConfig.active,
+                label: rootConfig.label,
+                developerName: rootConfig.developerName,
+                historyObjectApi: rootConfig.historyObjectApi,
+                recordTypes: rootConfig.recordTypes
+            });
+            
             console.log('Apex response:', result);
-            this.toast('Saved', 'Configuration save enqueued', 'success');
+            
+            // Handle different response scenarios
+            this.handleSaveSuccess(result, rootConfig);
             this.showRoot = false;
             await this.pollConfigs(8, 800);
             await this.loadRecent();
         } catch (e) {
             console.error('Error in saveRoot:', e);
-            this.toast('Error', this.errorMessage(e), 'error');
-        } finally { this.loading = false; }
+            this.handleSaveError(e);
+        } finally { 
+            this.loading = false; 
+            this.clearProgressMessage();
+        }
+    }
+    
+    handleSaveSuccess(result, rootConfig) {
+        if (result && result.requestId === 'REMOTE_SITE_DEPLOYING') {
+            this.toast('Remote Site Settings Deploying', 
+                'Remote site settings are being deployed automatically. The historian object will be created once deployment completes. Please check back in a few minutes.',
+                'info');
+        } else if (result && result.requestId) {
+            this.toast('Configuration Saved', 
+                `Configuration has been saved and historian object creation is in progress (Job ID: ${result.requestId.substring(0, 15)}...)`,
+                'success');
+        } else {
+            this.toast('Configuration Saved', 
+                'Configuration has been saved successfully. Historian object already exists or was created.',
+                'success');
+        }
+    }
+    
+    handleSaveError(error) {
+        const errorMsg = this.errorMessage(error);
+        
+        // Detect specific error types and provide tailored messages
+        if (errorMsg.includes('Remote site settings')) {
+            this.toast('Remote Site Configuration Required', 
+                'Remote site settings need to be configured before creating historian objects. Please configure them manually or contact your administrator.',
+                'error');
+        } else if (errorMsg.includes('historian object') && errorMsg.includes('saved')) {
+            this.toast('Partial Success', 
+                'Configuration was saved but historian object creation failed. You may need to create the historian object manually.',
+                'warning');
+        } else if (errorMsg.includes('System limits exceeded')) {
+            this.toast('System Busy', 
+                'The system is currently at capacity. Please try again in a few minutes.',
+                'warning');
+        } else if (errorMsg.includes('too many active jobs')) {
+            this.toast('Too Many Background Jobs', 
+                'There are too many background processes running. Please wait a few minutes and try again.',
+                'warning');
+        } else if (errorMsg.includes('does not exist')) {
+            this.toast('Invalid Object', 
+                'The specified object does not exist in this org. Please check the Object API Name.',
+                'error');
+        } else {
+            this.toast('Error Saving Configuration', errorMsg, 'error');
+        }
+    }
+    
+    @track progressMessage = '';
+    
+    showProgressMessage(message) {
+        this.progressMessage = message;
+    }
+    
+    clearProgressMessage() {
+        this.progressMessage = '';
+    }
+    
+    get isShowingProgress() {
+        return this.loading && this.progressMessage;
     }
     async removeRoot(raw) {
         try {
             this.loading = true;
             await deleteRoot({ developerName: raw.developerName });
-            this.toast('Deleted', 'Configuration deactivated', 'success');
+            this.toast('Deactivated', 'Configuration has been deactivated (set to inactive)', 'success');
             this.refresh();
             await this.loadRecent();
         } catch (e) {
@@ -289,6 +608,13 @@ export default class LibrarianLwc extends LightningElement {
         updatedForm[field] = value;
         this.rootForm = updatedForm;
         console.log('Updated rootForm:', JSON.stringify(this.rootForm));
+
+        // If object API name changes, clear and reload record types
+        if (field === 'objectApiName') {
+            this.recordTypeOptions = [];
+            this.selectedRecordTypes = [];
+            this.loadRecordTypes();
+        }
     }
     handleRootModeChange(event) {
         const updatedForm = Object.assign({}, this.rootForm);
@@ -331,11 +657,15 @@ export default class LibrarianLwc extends LightningElement {
         return Array.isArray(this.configs) && this.configs.length > 0;
     }
 
+    get hasRecordTypes() {
+        return Array.isArray(this.recordTypeOptions) && this.recordTypeOptions.length > 0;
+    }
+
     get showEmptyState() {
-        return !this.loading && (!this.objectApi || !this.hasConfigs);
+        return !this.loading && !this.hasConfigs;
     }
     get showTable() {
-        return !this.loading && this.objectApi && this.hasConfigs;
+        return !this.loading && this.hasConfigs;
     }
 
     async loadRecent() {

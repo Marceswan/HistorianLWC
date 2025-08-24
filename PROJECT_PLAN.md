@@ -46,22 +46,37 @@
 - Property Editor: LWC lists configs for selected sObject; displays "All fields" or enumerates configured fields.
 - Output: created row count, config used, tracked scope.
 
-## Work Packages
-1) CMDT definitions + sample records
-2) LWC: Librarian config CRUD
-3) Apex services: Config, Metadata, Change
-4) Invocable + property editor
-5) mdapi vendoring + validation (Remote Site Settings)
-6) Async mdapi job (Queueable) for object/field creation
-7) Packaging + permissions
-8) Tests (Apex + LWC)
+## 🚀 Implemented Automation Features
+- **Automatic Remote Site Settings Deployment**: System automatically detects missing Remote Site Settings and deploys them via `RemoteSiteDeploymentJob`
+- **Automatic Historian Object Creation**: When configurations are saved, historian objects are automatically created using `HistorianMetadataJob`
+- **Automatic Trigger Deployment**: System generates and deploys Apex triggers on source objects for automatic change tracking
+- **Smart Object Detection**: Uses `Schema.getGlobalDescribe()` for accurate object existence detection
+- **Async Processing**: All metadata operations handled asynchronously to avoid callout limitations
+- **Read-Only Protection**: DeveloperName and Label fields are protected from editing in the UI
+- **Soft Delete**: Configuration deactivation instead of hard deletion
 
-## Milestones
-- M1: CMDT + services skeleton (Week 1)
-- M2: LibrarianLWC MVP (Week 2)
-- M3: Historian object creation via mdapi (Week 3)
-- M4: Invocable + property editor (Week 4)
-- M5: Tests, polish, package beta (Week 5)
+## Work Packages ✅ Status Updates
+1) ✅ **COMPLETED** - CMDT definitions + sample records
+2) ✅ **COMPLETED** - LWC: Librarian config CRUD with automatic object creation
+3) ✅ **COMPLETED** - Apex services: Config, Metadata, Change
+4) 🔄 **IN PROGRESS** - Invocable + property editor
+5) ✅ **COMPLETED** - mdapi vendoring + automatic Remote Site Settings deployment
+6) ✅ **COMPLETED** - Async mdapi job (Queueable) for object/field creation with auto-trigger deployment
+7) 🔄 **IN PROGRESS** - Packaging + permissions
+8) 🔄 **IN PROGRESS** - Tests (Apex + LWC)
+
+## Milestones ✅ Progress
+- ✅ **M1: CMDT + services skeleton (Week 1)** - COMPLETED
+- ✅ **M2: LibrarianLWC MVP (Week 2)** - COMPLETED with enhanced automation
+- ✅ **M3: Historian object creation via mdapi (Week 3)** - COMPLETED with automatic trigger deployment
+- 🔄 **M4: Invocable + property editor (Week 4)** - IN PROGRESS
+- 🔄 **M5: Tests, polish, package beta (Week 5)** - IN PROGRESS
+
+## Next Steps & Current Priorities
+1. **Complete Flow Integration**: Finish the invocable action and custom property editor LWC
+2. **Comprehensive Testing**: Expand test coverage for new automation features
+3. **Package Finalization**: Complete packaging with proper permissions and dependencies
+4. **Documentation Updates**: Ensure all automation features are well-documented for end users
 
 ## Testing & Quality
 - Apex unit tests ≥ 85% on changed classes; cover mdapi error paths.

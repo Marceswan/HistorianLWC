@@ -8,22 +8,56 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
     }
 
     public void execute(QueueableContext context) {
-        if (String.isBlank(objectApi)) return;
-        if (Test.isRunningTest()) return; // Avoid callouts in tests; unit tests validate enqueue only
+        System.debug('=== HistorianMetadataJob.execute started ===');
+        System.debug('objectApi: ' + objectApi);
+        
+        if (String.isBlank(objectApi)) {
+            System.debug('objectApi is blank, returning');
+            return;
+        }
+        if (Test.isRunningTest()) {
+            System.debug('Test is running, returning to avoid callouts');
+            return; // Avoid callouts in tests; unit tests validate enqueue only
+        }
+        
+        // Ensure remote site settings are configured before proceeding
+        if (!MdapiUtil.ensureRemoteSiteSettings()) {
+            System.debug('Remote site settings being deployed, will retry historian creation later');
+            return;
+        }
+        
         String historianApi = objectApi + '_Historian__c';
+        System.debug('historianApi: ' + historianApi);
+        
         MetadataService.MetadataPort service = MdapiUtil.newService();
+        System.debug('MetadataPort service created');
 
-        // Check if object exists (via readMetadata IReadResult)
+        // Check if object exists using Schema.getGlobalDescribe() for accurate detection
         Boolean exists = false;
         try {
+            System.debug('Checking if object exists via Schema.getGlobalDescribe()');
+            exists = Schema.getGlobalDescribe().containsKey(historianApi);
+            System.debug('Schema.getGlobalDescribe() result - exists: ' + exists);
+            
+            // Also check via readMetadata for comparison
+            System.debug('Also checking via readMetadata for comparison');
             MetadataService.IReadResult rr = service.readMetadata('CustomObject', new String[] { historianApi });
-            exists = (rr != null && rr.getRecords() != null && rr.getRecords().size() > 0);
+            Boolean metadataExists = (rr != null && rr.getRecords() != null && rr.getRecords().size() > 0);
+            String recordCount = (rr != null && rr.getRecords() != null ? String.valueOf(rr.getRecords().size()) : 'null');
+            System.debug('readMetadata result - exists: ' + metadataExists + ', records: ' + recordCount);
+            
+            if (exists != metadataExists) {
+                System.debug('WARNING: Schema.getGlobalDescribe() and readMetadata disagree on object existence!');
+                System.debug('Using Schema.getGlobalDescribe() result as authoritative');
+            }
         } catch (Exception e) {
+            System.debug('Exception during object existence check: ' + e.getMessage());
             exists = false;
         }
         List<MetadataService.Metadata> toCreate = new List<MetadataService.Metadata>();
 
         if (!exists) {
+            System.debug('Object does not exist, creating: ' + historianApi);
             MetadataService.CustomObject obj = new MetadataService.CustomObject();
             obj.fullName = historianApi;
             obj.deploymentStatus = 'Deployed';
@@ -38,6 +72,9 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
             nameField.label = 'Name';
             obj.nameField = nameField;
             toCreate.add(obj);
+            System.debug('Added custom object to create list: ' + obj.fullName);
+        } else {
+            System.debug('Object already exists: ' + historianApi);
         }
 
         // Determine missing fields via readMetadata
@@ -90,9 +127,149 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
             toCreate.add(f);
         }
 
+        System.debug('Total metadata components to create: ' + toCreate.size());
         if (!toCreate.isEmpty()) {
             // createMetadata returns SaveResult[] in this mdapi version
-            try { service.createMetadata(toCreate); } catch (Exception e) { /* swallow */ }
+            try { 
+                System.debug('About to create ' + toCreate.size() + ' metadata components');
+                for (MetadataService.Metadata meta : toCreate) {
+                    if (meta instanceof MetadataService.CustomObject) {
+                        MetadataService.CustomObject obj = (MetadataService.CustomObject) meta;
+                        System.debug('Creating CustomObject: ' + obj.fullName + ', label: ' + obj.label);
+                    } else if (meta instanceof MetadataService.CustomField) {
+                        MetadataService.CustomField fld = (MetadataService.CustomField) meta;
+                        System.debug('Creating CustomField: ' + fld.fullName + ', type: ' + fld.type_x);
+                    }
+                }
+                
+                MetadataService.SaveResult[] results = service.createMetadata(toCreate); 
+                String resultCount = (results != null ? String.valueOf(results.size()) : 'null');
+                System.debug('CreateMetadata call completed, results: ' + resultCount);
+                
+                if (results != null) {
+                    for (MetadataService.SaveResult result : results) {
+                        if (result.success) {
+                            System.debug('Successfully created: ' + result.fullName);
+                        } else {
+                            System.debug('Failed to create: ' + result.fullName);
+                            if (result.errors != null) {
+                                for (MetadataService.Error err : result.errors) {
+                                    System.debug('Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    System.debug('CreateMetadata returned null results');
+                }
+            } catch (Exception e) { 
+                System.debug('Exception during createMetadata: ' + e.getMessage());
+                System.debug('Exception type: ' + e.getTypeName());
+                System.debug('Exception stack trace: ' + e.getStackTraceString());
+            }
+        } else {
+            System.debug('No metadata components to create - toCreate list is empty');
         }
+
+        // Create Apex Trigger for the source object to track changes
+        createHistorianTrigger(service);
+    }
+
+    private void createHistorianTrigger(MetadataService.MetadataPort service) {
+        String triggerName = objectApi + 'HistorianTrigger';
+        System.debug('Creating Apex Trigger: ' + triggerName);
+        
+        try {
+            // Check if trigger already exists
+            MetadataService.IReadResult triggerReadResult = service.readMetadata('ApexTrigger', new String[] { triggerName });
+            Boolean triggerExists = (triggerReadResult != null && triggerReadResult.getRecords() != null && triggerReadResult.getRecords().size() > 0);
+            
+            if (triggerExists) {
+                System.debug('Trigger already exists: ' + triggerName);
+                return;
+            }
+            
+            // Create the trigger body template
+            String triggerBody = buildTriggerBody(triggerName);
+            
+            // Create ApexTrigger metadata
+            MetadataService.ApexTrigger triggerMeta = new MetadataService.ApexTrigger();
+            triggerMeta.fullName = triggerName;
+            triggerMeta.content = EncodingUtil.base64Encode(Blob.valueOf(triggerBody));
+            triggerMeta.status = 'Active';
+            triggerMeta.apiVersion = 61.0; // Current API version
+            
+            // Deploy the trigger
+            MetadataService.SaveResult[] triggerResults = service.createMetadata(new List<MetadataService.Metadata>{ triggerMeta });
+            
+            if (triggerResults != null && triggerResults.size() > 0) {
+                MetadataService.SaveResult result = triggerResults[0];
+                if (result.success) {
+                    System.debug('Successfully created trigger: ' + result.fullName);
+                } else {
+                    System.debug('Failed to create trigger: ' + result.fullName);
+                    if (result.errors != null) {
+                        for (MetadataService.Error err : result.errors) {
+                            System.debug('Trigger Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            System.debug('Exception during trigger creation: ' + e.getMessage());
+            System.debug('Exception type: ' + e.getTypeName());
+            System.debug('Exception stack trace: ' + e.getStackTraceString());
+        }
+    }
+
+    private String buildTriggerBody(String triggerName) {
+        String triggerBody = 'trigger ' + triggerName + ' on ' + objectApi + ' (before update, after update) {\n';
+        triggerBody += '    // Auto-generated trigger for Historian tracking\n';
+        triggerBody += '    \n';
+        triggerBody += '    // Only process after update events for historian tracking\n';
+        triggerBody += '    if (Trigger.isAfter && Trigger.isUpdate) {\n';
+        triggerBody += '        try {\n';
+        triggerBody += '            // Query the Historian Config metadata for this object\n';
+        triggerBody += '            String objectApiName = \'' + objectApi + '\';\n';
+        triggerBody += '            List<Historian_Config__mdt> configs = [\n';
+        triggerBody += '                SELECT Id, DeveloperName, Object_API_Name__c, Track_All_Fields__c, \n';
+        triggerBody += '                       Fields_to_Track__c, Active__c, Record_Types__c\n';
+        triggerBody += '                FROM Historian_Config__mdt \n';
+        triggerBody += '                WHERE Object_API_Name__c = :objectApiName \n';
+        triggerBody += '                  AND Active__c = true\n';
+        triggerBody += '                LIMIT 1\n';
+        triggerBody += '            ];\n';
+        triggerBody += '            \n';
+        triggerBody += '            if (!configs.isEmpty()) {\n';
+        triggerBody += '                Historian_Config__mdt config = configs[0];\n';
+        triggerBody += '                \n';
+        triggerBody += '                // Prepare data for HistorianChangeService\n';
+        triggerBody += '                Map<Id, SObject> oldMap = new Map<Id, SObject>();\n';
+        triggerBody += '                Map<Id, SObject> newMap = new Map<Id, SObject>();\n';
+        triggerBody += '                \n';
+        triggerBody += '                for (SObject oldRecord : Trigger.old) {\n';
+        triggerBody += '                    oldMap.put(oldRecord.Id, oldRecord);\n';
+        triggerBody += '                }\n';
+        triggerBody += '                \n';
+        triggerBody += '                for (SObject newRecord : Trigger.new) {\n';
+        triggerBody += '                    newMap.put(newRecord.Id, newRecord);\n';
+        triggerBody += '                }\n';
+        triggerBody += '                \n';
+        triggerBody += '                // Call HistorianChangeService to create historian records\n';
+        triggerBody += '                HistorianChangeService.createHistorianRecords(\n';
+        triggerBody += '                    config.DeveloperName,\n';
+        triggerBody += '                    oldMap,\n';
+        triggerBody += '                    newMap\n';
+        triggerBody += '                );\n';
+        triggerBody += '            }\n';
+        triggerBody += '        } catch (Exception e) {\n';
+        triggerBody += '            System.debug(\'Error in ' + triggerName + ': \' + e.getMessage());\n';
+        triggerBody += '            // Log error but don\'t fail the transaction\n';
+        triggerBody += '        }\n';
+        triggerBody += '    }\n';
+        triggerBody += '}\n';
+        
+        return triggerBody;
     }
 }

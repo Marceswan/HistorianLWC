@@ -4,6 +4,7 @@ public with sharing class HistorianConfigService {
         @AuraEnabled public String objectApi;
         @AuraEnabled public Boolean allFields;
         @AuraEnabled public List<String> fieldApis;
+        @AuraEnabled public List<String> recordTypes;
     }
 
     @AuraEnabled(cacheable=true)
@@ -21,6 +22,7 @@ public with sharing class HistorianConfigService {
                 cs.objectApi = r.Object_Api_Name__c;
                 cs.allFields = (r.Track_Mode__c == 'AllFields');
                 cs.fieldApis = new List<String>();
+                cs.recordTypes = new List<String>(); // Empty list for now
                 if (!cs.allFields) {
                     for (Historian_Field_Config__mdt fc : [
                         SELECT Field_Api_Name__c, Include__c, Parent_Config__c
@@ -52,6 +54,23 @@ public with sharing class HistorianConfigService {
         cs.objectApi = objectApi;
         cs.allFields = true;
         cs.fieldApis = new List<String>();
+        cs.recordTypes = new List<String>(); // Empty means all record types
         return cs;
+    }
+    
+    private static List<String> parseRecordTypesList(String recordTypesString) {
+        List<String> recordTypes = new List<String>();
+        
+        if (String.isNotBlank(recordTypesString)) {
+            List<String> parts = recordTypesString.split(',');
+            for (String part : parts) {
+                String trimmed = part.trim();
+                if (String.isNotBlank(trimmed)) {
+                    recordTypes.add(trimmed);
+                }
+            }
+        }
+        
+        return recordTypes;
     }
 }
