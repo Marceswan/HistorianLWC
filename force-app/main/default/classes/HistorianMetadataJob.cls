@@ -180,49 +180,20 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
         System.debug('Creating Record-Triggered Flow: ' + flowName);
         
         try {
-            // Check if flow already exists
-            MetadataService.IReadResult flowReadResult = service.readMetadata('Flow', new String[] { flowName });
-            Boolean flowExists = (flowReadResult != null && flowReadResult.getRecords() != null && flowReadResult.getRecords().size() > 0);
+            // Use the FlowDeploymentService to handle Flow deployment
+            // This is more reliable than building complex Flow metadata manually
+            Map<String, Object> deployResult = FlowDeploymentService.deployFlowNow(objectApi);
             
-            if (flowExists) {
-                System.debug('Flow exists, updating with current configuration: ' + flowName);
+            Boolean success = (Boolean) deployResult.get('success');
+            String message = (String) deployResult.get('message');
+            Integer errorCount = deployResult.containsKey('errorCount') ? (Integer) deployResult.get('errorCount') : 0;
+            
+            if (success) {
+                System.debug('Successfully created Flow using FlowDeploymentService: ' + flowName);
+                updateFlowDeploymentResult(flowName, 'Succeeded', 0, 'Flow successfully deployed via FlowDeploymentService');
             } else {
-                System.debug('Creating new Record-Triggered Flow: ' + flowName);
-            }
-            
-            // Create the Flow metadata
-            MetadataService.Flow historianFlow = buildHistorianFlow(flowName);
-            
-            // Deploy the Flow using createMetadata (Flows can be created directly)
-            List<MetadataService.Metadata> toCreateFlow = new List<MetadataService.Metadata>{historianFlow};
-            
-            MetadataService.SaveResult[] flowResults = service.createMetadata(toCreateFlow);
-            
-            if (flowResults != null && flowResults.size() > 0) {
-                MetadataService.SaveResult result = flowResults[0];
-                if (result.success) {
-                    System.debug('Successfully created Flow: ' + result.fullName);
-                    updateFlowDeploymentResult(flowName, 'Succeeded', 0, 'Flow successfully deployed');
-                    
-                } else {
-                    System.debug('Failed to create Flow: ' + result.fullName);
-                    
-                    String errorMessages = '';
-                    Integer errorCount = 0;
-                    
-                    if (result.errors != null) {
-                        for (MetadataService.Error err : result.errors) {
-                            System.debug('Flow Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
-                            errorMessages += err.message + ' (' + err.statusCode + '); ';
-                            errorCount++;
-                        }
-                    }
-                    
-                    updateFlowDeploymentResult(flowName, 'Failed', errorCount, 'Flow deployment failed: ' + errorMessages);
-                }
-            } else {
-                System.debug('No flow results returned from createMetadata');
-                updateFlowDeploymentResult(flowName, 'Failed', 1, 'No results returned from createMetadata call');
+                System.debug('Failed to create Flow using FlowDeploymentService: ' + message);
+                updateFlowDeploymentResult(flowName, 'Failed', errorCount, 'Flow deployment failed: ' + message);
             }
             
         } catch (Exception e) {
@@ -234,58 +205,6 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
         }
     }
     
-    /**
-     * Build a Record-Triggered Flow that calls the HistorianHelper invocable action
-     */
-    private MetadataService.Flow buildHistorianFlow(String flowName) {
-        MetadataService.Flow flow = new MetadataService.Flow();
-        flow.fullName = flowName;
-        flow.description = 'Auto-generated Record-Triggered Flow to capture field changes for ' + objectApi + ' using Historian';
-        flow.label = objectApi + ' Historian Flow';
-        flow.processType = 'AutoLaunchedFlow';
-        // Note: status and triggerType are not direct properties of Flow - they are handled through other mechanisms
-        
-        // Set the start element reference (Flows use startElementReference instead of start element)
-        flow.startElementReference = 'Capture_Historical_Changes';
-        
-        // Note: Flow triggers are configured through Process Builder settings or Flow definition metadata
-        // The actual trigger configuration would need additional metadata setup
-        
-        // Create action call to HistorianHelper.captureHistoricalChanges
-        MetadataService.FlowActionCall actionCall = new MetadataService.FlowActionCall();
-        actionCall.name = 'Capture_Historical_Changes';
-        actionCall.label = 'Capture Historical Changes';
-        actionCall.locationX = 300;
-        actionCall.locationY = 150;
-        actionCall.actionName = 'HistorianHelper';
-        actionCall.actionType = 'apex';
-        
-        // Set up input parameters for the HistorianHelper.captureHistoricalChanges method
-        List<MetadataService.FlowActionCallInputParameter> inputParams = new List<MetadataService.FlowActionCallInputParameter>();
-        
-        // targetRecordId parameter
-        MetadataService.FlowActionCallInputParameter recordIdParam = new MetadataService.FlowActionCallInputParameter();
-        recordIdParam.name = 'targetRecordId';
-        recordIdParam.value = new MetadataService.FlowElementReferenceOrValue();
-        recordIdParam.value.elementReference = '$Record.Id';
-        inputParams.add(recordIdParam);
-        
-        // targetSObjectApiName parameter
-        MetadataService.FlowActionCallInputParameter sObjectParam = new MetadataService.FlowActionCallInputParameter();
-        sObjectParam.name = 'targetSObjectApiName';
-        sObjectParam.value = new MetadataService.FlowElementReferenceOrValue();
-        sObjectParam.value.stringValue = objectApi;
-        inputParams.add(sObjectParam);
-        
-        actionCall.inputParameters = inputParams;
-        
-        flow.actionCalls = new List<MetadataService.FlowActionCall>{actionCall};
-        
-        // Note: apiVersion is not a direct property of Flow metadata in this version of the metadata API
-        // It's typically handled at the deployment level
-        
-        return flow;
-    }
     
     /**
      * Update or create deployment result record for Flow deployment tracking
