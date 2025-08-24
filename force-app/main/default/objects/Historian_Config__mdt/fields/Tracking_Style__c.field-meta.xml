@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tracking_Style__c</fullName>
+    <label>Tracking Style</label>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Timeline</fullName>
+                <default>false</default>
+                <label>Timeline</label>
+            </value>
+            <value>
+                <fullName>Datatable</fullName>
+                <default>false</default>
+                <label>Datatable</label>
+            </value>
+            <value>
+                <fullName>CompactCards</fullName>
+                <default>false</default>
+                <label>Compact Cards</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
+

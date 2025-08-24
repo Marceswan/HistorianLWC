@@ -1,0 +1,22 @@
+# SFDX / Salesforce
+.sfdx/
+.sf/
+.localdevserver/
+.vscode/
+coverage/
+
+# Node / Tooling
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+tmp/
+temp/
+vendor_tmp/
+

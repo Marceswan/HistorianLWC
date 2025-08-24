@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <label>Historian Deploy Result</label>
+    <pluralLabel>Historian Deploy Results</pluralLabel>
+    <sharingModel>ReadWrite</sharingModel>
+    <nameField>
+        <type>AutoNumber</type>
+        <label>Deploy Result #</label>
+        <displayFormat>HDR-{000000}</displayFormat>
+    </nameField>
+</CustomObject>

@@ -1,0 +1,94 @@
+<template>
+    <lightning-card title="Librarian – Historian Configs">
+        <div slot="actions" class="slds-grid slds-gutters">
+            <div class="slds-col">
+                <lightning-input type="text" placeholder="SObject API (e.g., Account)" value={objectApi} onchange={handleObjectChange}></lightning-input>
+            </div>
+            <div class="slds-col">
+                <lightning-input type="text" placeholder="Config Name (optional)" value={configName} onchange={handleConfigChange}></lightning-input>
+            </div>
+            <div class="slds-col slds-align_absolute-center">
+                <lightning-button label="Ensure Historian Object" onclick={ensureHistorian}></lightning-button>
+                <lightning-button variant="neutral" class="slds-m-left_x-small" label="Refresh" onclick={refresh}></lightning-button>
+                <lightning-button variant="neutral" class="slds-m-left_x-small" label="Remote Site Helper" onclick={openRemoteSite}></lightning-button>
+                <lightning-button variant="brand" class="slds-m-left_x-small" label="New Config" onclick={newRoot}></lightning-button>
+            </div>
+        </div>
+        <div class="slds-p-around_medium">
+            <template if:true={showMdapiWarning}>
+                <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_warning slds-m-bottom_small" role="alert">
+                    <span class="slds-assistive-text">warning</span>
+                    <h2>Metadata API (WSDL) callouts not configured. Use Remote Site Helper to add your My Domain remote site before creating Historian objects.</h2>
+                </div>
+            </template>
+            <template if:true={loading}>
+                <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+            </template>
+            <template if:true={showEmptyState}>
+                <p class="slds-text-title_caps">No configurations found</p>
+                <p class="slds-text-body_small">Enter an SObject API above and click "New Config" to create one.</p>
+            </template>
+            <template if:true={showTable}>
+                <lightning-datatable key-field="id" data={configs} columns={columns} hide-checkbox-column onrowaction={handleRowAction}></lightning-datatable>
+            </template>
+
+            <div class="slds-m-top_large">
+                <h3 class="slds-text-title_caps slds-m-bottom_x-small">Recent Deploys</h3>
+                <lightning-datatable key-field="id" data={recent} columns={recentColumns} hide-checkbox-column></lightning-datatable>
+            </div>
+        </div>
+    </lightning-card>
+
+    <!-- Root Config Modal (simple inline panel) -->
+    <template if:true={showRoot}>
+        <section class="slds-modal slds-fade-in-open" role="dialog">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header"><h2 class="slds-modal__title">Config</h2></header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <lightning-input data-field="developerName" label="Developer Name" value={rootForm.developerName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
+                    <lightning-input data-field="label" label="Label" value={rootForm.label} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
+                    <lightning-input data-field="configName" label="Config Name" value={rootForm.configName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
+                    <lightning-input data-field="objectApiName" label="Object API Name" value={rootForm.objectApiName} onchange={handleRootInputChange} autocomplete="off"></lightning-input>
+                    <lightning-combobox label="Track Mode" value={rootForm.trackMode} options={modeOptions} onchange={handleRootModeChange}></lightning-combobox>
+                    <lightning-combobox label="Style" value={rootForm.trackingStyle} options={styleOptions} onchange={handleRootStyleChange}></lightning-combobox>
+                    <lightning-input type="checkbox" label="Active" checked={rootForm.active} onchange={handleRootActiveChange}></lightning-input>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeRoot}></lightning-button>
+                    <lightning-button variant="brand" label="Save" onclick={saveRoot} class="slds-m-left_small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+
+    <!-- Field Config Modal -->
+    <template if:true={showFields}>
+        <section class="slds-modal slds-fade-in-open" role="dialog">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header"><h2 class="slds-modal__title">Field Configs</h2></header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template for:each={fieldRows} for:item="r">
+                        <div key={r.developerName} class="slds-grid slds-gutters slds-m-bottom_x-small slds-align_absolute-center">
+                            <div class="slds-col slds-size_6-of-12">{r.fieldApiName}</div>
+                            <div class="slds-col slds-size_3-of-12">
+                                <lightning-input type="toggle" checked={r.include} message-toggle-active="Included" message-toggle-inactive="Excluded" onchange={handleToggleInclude} data-devname={r.developerName}></lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_3-of-12 slds-text-align_right">
+                                <lightning-button-icon icon-name="utility:delete" title="Delete" alternative-text="Delete" onclick={deleteFieldRow} data-devname={r.developerName}></lightning-button-icon>
+                            </div>
+                        </div>
+                    </template>
+                    <hr />
+                    <lightning-input data-field="fieldApiName" label="Field API Name" value={fieldForm.fieldApiName} onchange={handleFieldInputChange}></lightning-input>
+                    <lightning-input type="checkbox" label="Include" checked={fieldForm.include} onchange={handleFieldIncludeChange}></lightning-input>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Close" onclick={closeFields}></lightning-button>
+                    <lightning-button variant="brand" label="Add/Save Field" onclick={saveField} class="slds-m-left_small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

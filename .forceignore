@@ -1,0 +1,19 @@
+# Ignore common non-metadata files
+**/*.log
+**/*.tmp
+**/*.swp
+**/*.bak
+**/.DS_Store
+
+# Ignore node tooling
+**/node_modules
+**/coverage
+
+# Ignore local config
+.sfdx/
+.sf/
+
+
+**/jsconfig.json
+
+**/.eslintrc.json

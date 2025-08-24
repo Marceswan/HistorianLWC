@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Track_Mode__c</fullName>
+    <label>Track Mode</label>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>AllFields</fullName>
+                <default>false</default>
+                <label>All Fields</label>
+            </value>
+            <value>
+                <fullName>PerField</fullName>
+                <default>false</default>
+                <label>Per Field</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
+
