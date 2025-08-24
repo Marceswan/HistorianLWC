@@ -11,10 +11,10 @@ import upsertField from '@salesforce/apex/HistorianConfigAdminService.upsertFiel
 import deleteField from '@salesforce/apex/HistorianConfigAdminService.deleteField';
 import listRecent from '@salesforce/apex/HistorianConfigAdminService.listRecentDeployResults';
 import getRecordTypesForObject from '@salesforce/apex/HistorianConfigAdminService.getRecordTypesForObject';
-import deployTriggerForObject from '@salesforce/apex/HistorianConfigAdminService.deployTriggerForObject';
-import deployTriggerNow from '@salesforce/apex/TriggerDeploymentService.deployTriggerNow';
-import verifyTriggerDeployment from '@salesforce/apex/TriggerDeploymentService.verifyTriggerDeployment';
-import getDeploymentStatus from '@salesforce/apex/TriggerDeploymentService.getDeploymentStatus';
+import deployFlowForObject from '@salesforce/apex/HistorianConfigAdminService.deployFlowForObject';
+import deployFlowNow from '@salesforce/apex/FlowDeploymentService.deployFlowNow';
+import verifyFlowDeployment from '@salesforce/apex/FlowDeploymentService.verifyFlowDeployment';
+import getDeploymentStatus from '@salesforce/apex/FlowDeploymentService.getDeploymentStatus';
 
 export default class LibrarianLwc extends LightningElement {
     @track objectApi = '';
@@ -661,12 +661,12 @@ export default class LibrarianLwc extends LightningElement {
                 activeConfigsCount: activeConfigs.length,
                 totalConfigsCount: objectConfigs.length,
                 activeRecordTypesCount: 0, // Simplified
-                hasTriggerDeployed: false, // Conservative default
+                hasFlowDeployed: false, // Conservative default
                 hasHistoryObject: false, // Conservative default
                 lastUpdated: new Date(),
                 isSelected: this.selectedObjectFilter === objectName,
                 deployInProgress: deployInProgress,
-                deployButtonLabel: deployInProgress ? 'Deploying...' : 'Deploy Trigger Now'
+                deployButtonLabel: deployInProgress ? 'Deploying...' : 'Deploy Flow Now'
             };
         });
 
@@ -709,8 +709,8 @@ export default class LibrarianLwc extends LightningElement {
         this.applyObjectFilter();
     }
 
-    // Handle deploy trigger button click with real-time deployment
-    async handleDeployTrigger(event) {
+    // Handle deploy Flow button click with real-time deployment
+    async handleDeployFlow(event) {
         const objectApiName = event.target.dataset.objectApi;
         
         if (!objectApiName) {
@@ -723,13 +723,13 @@ export default class LibrarianLwc extends LightningElement {
             this.generateObjectSummaries(); // Refresh to show loading state
 
             this.toast('Deploy Started', 
-                `Deploying historian trigger for ${objectApiName} using real-time deployment...`, 
+                `Deploying historian Flow for ${objectApiName} using real-time deployment...`, 
                 'info');
 
-            console.log('Starting real-time trigger deployment for:', objectApiName);
+            console.log('Starting real-time Flow deployment for:', objectApiName);
             
             // Use the new real-time deployment service
-            const deployResult = await deployTriggerNow({ objectApiName: objectApiName });
+            const deployResult = await deployFlowNow({ objectApiName: objectApiName });
             console.log('Real-time deployment result:', deployResult);
             
             this.deployInProgress.delete(objectApiName);
@@ -739,15 +739,15 @@ export default class LibrarianLwc extends LightningElement {
             if (deployResult.success) {
                 if (deployResult.verified) {
                     this.toast('Deploy Complete', 
-                        `Historian trigger for ${objectApiName} deployed and verified successfully!`, 
+                        `Historian Flow for ${objectApiName} deployed and verified successfully!`, 
                         'success');
                 } else if (deployResult.inProgress) {
                     this.toast('Deploy In Progress', 
-                        `Historian trigger deployment initiated for ${objectApiName}. Check Recent Activity for updates.`, 
+                        `Historian Flow deployment initiated for ${objectApiName}. Check Recent Activity for updates.`, 
                         'info');
                 } else {
                     this.toast('Deploy Complete', 
-                        `Historian trigger for ${objectApiName} deployed successfully.`, 
+                        `Historian Flow for ${objectApiName} deployed successfully.`, 
                         'success');
                 }
                 
@@ -755,14 +755,14 @@ export default class LibrarianLwc extends LightningElement {
                 if (deployResult.message) {
                     console.log('Deployment message:', deployResult.message);
                 }
-                if (deployResult.triggerCode) {
-                    console.log('Generated trigger code:', deployResult.triggerCode);
+                if (deployResult.flowDescription) {
+                    console.log('Generated Flow description:', deployResult.flowDescription);
                 }
             } else {
                 // Show error details
                 const errorMsg = deployResult.error || 'Unknown deployment error';
                 this.toast('Deploy Failed', 
-                    `Failed to deploy trigger for ${objectApiName}: ${errorMsg}`, 
+                    `Failed to deploy Flow for ${objectApiName}: ${errorMsg}`, 
                     'error');
                 
                 if (deployResult.errorType) {
@@ -777,7 +777,7 @@ export default class LibrarianLwc extends LightningElement {
             // Verify deployment after a short delay
             if (deployResult.success) {
                 setTimeout(async () => {
-                    await this.verifyTriggerStatus(objectApiName);
+                    await this.verifyFlowStatus(objectApiName);
                 }, 3000); // Wait 3 seconds before verification
             }
 
@@ -788,34 +788,34 @@ export default class LibrarianLwc extends LightningElement {
             const errorMsg = this.errorMessage(error);
             console.error('Deployment error:', error);
             this.toast('Deploy Failed', 
-                `Failed to deploy trigger for ${objectApiName}: ${errorMsg}`, 
+                `Failed to deploy Flow for ${objectApiName}: ${errorMsg}`, 
                 'error');
         }
     }
     
-    // Verify trigger deployment status
-    async verifyTriggerStatus(objectApiName) {
+    // Verify Flow deployment status
+    async verifyFlowStatus(objectApiName) {
         try {
-            console.log('Verifying trigger deployment for:', objectApiName);
+            console.log('Verifying Flow deployment for:', objectApiName);
             
-            const verificationResult = await verifyTriggerDeployment({ objectApiName: objectApiName });
+            const verificationResult = await verifyFlowDeployment({ objectApiName: objectApiName });
             console.log('Verification result:', verificationResult);
             
-            if (verificationResult.success && verificationResult.triggerExists) {
+            if (verificationResult.success && verificationResult.flowExists) {
                 this.toast('Verification Complete', 
-                    `Trigger for ${objectApiName} is deployed and functional.`, 
+                    `Flow for ${objectApiName} is deployed and functional.`, 
                     'success');
                 
                 // Refresh object summaries to reflect current status
                 await this.loadRealObjectSummaries();
-            } else if (!verificationResult.triggerExists) {
+            } else if (!verificationResult.flowExists) {
                 this.toast('Verification Warning', 
-                    `Trigger for ${objectApiName} may not be properly deployed. Check Recent Activity for details.`, 
+                    `Flow for ${objectApiName} may not be properly deployed. Check Recent Activity for details.`, 
                     'warning');
             }
             
         } catch (verifyError) {
-            console.error('Error verifying trigger deployment:', verifyError);
+            console.error('Error verifying Flow deployment:', verifyError);
             // Don't show toast for verification errors to avoid overwhelming user
         }
     }

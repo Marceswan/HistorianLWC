@@ -370,14 +370,14 @@ public with sharing class HistorianConfigAdminService {
                     // Always run the metadata job to ensure triggers are current with field configuration
                     createHistorianObjectWithErrorHandling(input.objectApiName);
                     
-                    // Also ensure trigger deployment is initiated for the configuration
-                    System.debug('Initiating trigger deployment for configuration: ' + input.objectApiName);
+                    // Also ensure Flow deployment is initiated for the configuration
+                    System.debug('Initiating Flow deployment for configuration: ' + input.objectApiName);
                     try {
-                        String triggerJobId = deployTriggerForObject(input.objectApiName);
-                        System.debug('Trigger deployment initiated with job ID: ' + triggerJobId);
-                    } catch (Exception triggerEx) {
-                        System.debug('Error initiating trigger deployment: ' + triggerEx.getMessage());
-                        // Don't fail the entire operation if trigger deployment fails
+                        String flowJobId = deployFlowForObject(input.objectApiName);
+                        System.debug('Flow deployment initiated with job ID: ' + flowJobId);
+                    } catch (Exception flowEx) {
+                        System.debug('Error initiating Flow deployment: ' + flowEx.getMessage());
+                        // Don't fail the entire operation if Flow deployment fails
                         // The user can manually deploy later
                     }
                     
@@ -817,8 +817,8 @@ public with sharing class HistorianConfigAdminService {
     }
 
     @AuraEnabled
-    public static String deployTriggerForObject(String objectApiName) {
-        System.debug('deployTriggerForObject called with objectApiName: ' + objectApiName);
+    public static String deployFlowForObject(String objectApiName) {
+        System.debug('deployFlowForObject called with objectApiName: ' + objectApiName);
         
         if (String.isBlank(objectApiName)) {
             throw new AuraHandledException('Object API Name is required');
@@ -845,31 +845,31 @@ public with sharing class HistorianConfigAdminService {
             // Create configuration summary for the HistorianMetadataJob
             HistorianConfigService.ConfigSummary cfg = new HistorianConfigService.ConfigSummary();
             cfg.objectApi = objectApiName;
-            cfg.configName = 'trigger_deployment';
+            cfg.configName = 'flow_deployment';
             
             // Check if we have required permissions before enqueuing
             if (!Schema.sObjectType.AsyncApexJob.isAccessible()) {
-                throw new AuraHandledException('Insufficient permissions to create background jobs for trigger deployment');
+                throw new AuraHandledException('Insufficient permissions to create background jobs for Flow deployment');
             }
             
-            // Enqueue the HistorianMetadataJob to deploy/update the trigger
+            // Enqueue the HistorianMetadataJob to deploy/update the Flow
             Id jobId = System.enqueueJob(new HistorianMetadataJob(objectApiName, cfg));
-            System.debug('Trigger deployment job enqueued with ID: ' + jobId);
+            System.debug('Flow deployment job enqueued with ID: ' + jobId);
             
             // Create deployment result record for tracking
-            createDeploymentResultRecord('TRIGGER_DEPLOY', jobId, objectApiName + 'HistorianTrigger', 'ApexTrigger', 'Queued', 0, null);
+            createDeploymentResultRecord('FLOW_DEPLOY', jobId, objectApiName + '_Historian_Flow', 'Flow', 'Queued', 0, null);
             
             return String.valueOf(jobId);
             
         } catch (AsyncException ex) {
-            System.debug('AsyncException during trigger deployment: ' + ex.getMessage());
-            throw new AuraHandledException('Failed to queue trigger deployment job: ' + ex.getMessage());
+            System.debug('AsyncException during Flow deployment: ' + ex.getMessage());
+            throw new AuraHandledException('Failed to queue Flow deployment job: ' + ex.getMessage());
         } catch (System.LimitException ex) {
-            System.debug('LimitException during trigger deployment: ' + ex.getMessage());
-            throw new AuraHandledException('System limits exceeded while deploying trigger: ' + ex.getMessage());
+            System.debug('LimitException during Flow deployment: ' + ex.getMessage());
+            throw new AuraHandledException('System limits exceeded while deploying Flow: ' + ex.getMessage());
         } catch (Exception ex) {
-            System.debug('Unexpected error deploying trigger: ' + ex.getMessage());
-            throw new AuraHandledException('Failed to deploy trigger: ' + ex.getMessage());
+            System.debug('Unexpected error deploying Flow: ' + ex.getMessage());
+            throw new AuraHandledException('Failed to deploy Flow: ' + ex.getMessage());
         }
     }
     

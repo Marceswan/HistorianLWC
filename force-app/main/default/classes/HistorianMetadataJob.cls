@@ -171,104 +171,145 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
             System.debug('No metadata components to create - toCreate list is empty');
         }
 
-        // Create Apex Trigger for the source object to track changes
-        createHistorianTrigger(service);
+        // Create Record-Triggered Flow for the source object to track changes
+        createHistorianFlow(service);
     }
 
-    private void createHistorianTrigger(MetadataService.MetadataPort service) {
-        String triggerName = objectApi + 'HistorianTrigger';
-        System.debug('Creating/Updating Apex Trigger: ' + triggerName);
+    private void createHistorianFlow(MetadataService.MetadataPort service) {
+        String flowName = objectApi + '_Historian_Flow';
+        System.debug('Creating Record-Triggered Flow: ' + flowName);
         
         try {
-            // Check if trigger already exists
-            MetadataService.IReadResult triggerReadResult = service.readMetadata('ApexTrigger', new String[] { triggerName });
-            Boolean triggerExists = (triggerReadResult != null && triggerReadResult.getRecords() != null && triggerReadResult.getRecords().size() > 0);
+            // Check if flow already exists
+            MetadataService.IReadResult flowReadResult = service.readMetadata('Flow', new String[] { flowName });
+            Boolean flowExists = (flowReadResult != null && flowReadResult.getRecords() != null && flowReadResult.getRecords().size() > 0);
             
-            if (triggerExists) {
-                System.debug('Trigger exists, updating with current configuration: ' + triggerName);
-                // Continue with deployment to update the trigger with current field configuration
+            if (flowExists) {
+                System.debug('Flow exists, updating with current configuration: ' + flowName);
             } else {
-                System.debug('Creating new trigger: ' + triggerName);
+                System.debug('Creating new Record-Triggered Flow: ' + flowName);
             }
             
-            // Create the trigger body template
-            String triggerBody = buildTriggerBody(triggerName);
+            // Create the Flow metadata
+            MetadataService.Flow historianFlow = buildHistorianFlow(flowName);
             
-            // Create ApexTrigger metadata
-            MetadataService.ApexTrigger triggerMeta = new MetadataService.ApexTrigger();
-            triggerMeta.fullName = triggerName;
-            triggerMeta.content = EncodingUtil.base64Encode(Blob.valueOf(triggerBody));
-            triggerMeta.status = 'Active';
-            triggerMeta.apiVersion = 61.0; // Current API version
+            // Deploy the Flow using createMetadata (Flows can be created directly)
+            List<MetadataService.Metadata> toCreateFlow = new List<MetadataService.Metadata>{historianFlow};
             
-            // Deploy the trigger
-            MetadataService.SaveResult[] triggerResults = service.createMetadata(new List<MetadataService.Metadata>{ triggerMeta });
+            MetadataService.SaveResult[] flowResults = service.createMetadata(toCreateFlow);
             
-            if (triggerResults != null && triggerResults.size() > 0) {
-                MetadataService.SaveResult result = triggerResults[0];
+            if (flowResults != null && flowResults.size() > 0) {
+                MetadataService.SaveResult result = flowResults[0];
                 if (result.success) {
-                    System.debug('Successfully created trigger: ' + result.fullName);
-                    
-                    // Update deployment result record with success
-                    updateTriggerDeploymentResult(triggerName, 'Succeeded', 0, 'Trigger successfully deployed');
-                    
-                    // Verify deployment by checking trigger existence
-                    try {
-                        Boolean verified = TriggerDetectionService.verifyTriggerDeployment(objectApi);
-                        if (verified) {
-                            System.debug('Trigger deployment verified successfully: ' + triggerName);
-                        } else {
-                            System.debug('WARNING: Trigger deployment reported success but verification failed: ' + triggerName);
-                            updateTriggerDeploymentResult(triggerName, 'Warning', 0, 'Deployment succeeded but verification failed');
-                        }
-                    } catch (Exception verifyEx) {
-                        System.debug('Error verifying trigger deployment: ' + verifyEx.getMessage());
-                    }
+                    System.debug('Successfully created Flow: ' + result.fullName);
+                    updateFlowDeploymentResult(flowName, 'Succeeded', 0, 'Flow successfully deployed');
                     
                 } else {
-                    System.debug('Failed to create trigger: ' + result.fullName);
+                    System.debug('Failed to create Flow: ' + result.fullName);
                     
                     String errorMessages = '';
                     Integer errorCount = 0;
                     
                     if (result.errors != null) {
                         for (MetadataService.Error err : result.errors) {
-                            System.debug('Trigger Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
+                            System.debug('Flow Error: ' + err.message + ' (statusCode: ' + err.statusCode + ')');
                             errorMessages += err.message + ' (' + err.statusCode + '); ';
                             errorCount++;
                         }
                     }
                     
-                    // Update deployment result record with failure
-                    updateTriggerDeploymentResult(triggerName, 'Failed', errorCount, 'Trigger deployment failed: ' + errorMessages);
+                    updateFlowDeploymentResult(flowName, 'Failed', errorCount, 'Flow deployment failed: ' + errorMessages);
                 }
             } else {
-                System.debug('No trigger results returned from createMetadata');
-                updateTriggerDeploymentResult(triggerName, 'Failed', 1, 'No results returned from createMetadata call');
+                System.debug('No flow results returned from createMetadata');
+                updateFlowDeploymentResult(flowName, 'Failed', 1, 'No results returned from createMetadata call');
             }
             
         } catch (Exception e) {
-            System.debug('Exception during trigger creation: ' + e.getMessage());
+            System.debug('Exception during Flow creation: ' + e.getMessage());
             System.debug('Exception type: ' + e.getTypeName());
             System.debug('Exception stack trace: ' + e.getStackTraceString());
             
-            // Update deployment result record with exception
-            updateTriggerDeploymentResult(triggerName, 'Failed', 1, 'Exception during trigger creation: ' + e.getMessage());
+            updateFlowDeploymentResult(flowName, 'Failed', 1, 'Exception during Flow creation: ' + e.getMessage());
         }
     }
     
     /**
-     * Update or create deployment result record for trigger deployment tracking
+     * Build a Record-Triggered Flow that calls the HistorianHelper invocable action
      */
-    private void updateTriggerDeploymentResult(String triggerName, String status, Integer errorCount, String message) {
+    private MetadataService.Flow buildHistorianFlow(String flowName) {
+        MetadataService.Flow flow = new MetadataService.Flow();
+        flow.fullName = flowName;
+        flow.description = 'Auto-generated Record-Triggered Flow to capture field changes for ' + objectApi + ' using Historian';
+        flow.label = objectApi + ' Historian Flow';
+        flow.processType = 'AutoLaunchedFlow';
+        flow.status = 'Active';
+        flow.triggerType = 'RecordAfterSave';
+        
+        // Set up the trigger (what fires the flow)
+        MetadataService.FlowStart startElement = new MetadataService.FlowStart();
+        startElement.name = 'Start';
+        startElement.label = 'Start';
+        startElement.locationX = 50;
+        startElement.locationY = 50;
+        startElement.object_x = objectApi;
+        startElement.triggerType = 'RecordAfterSave';
+        
+        // Add connector to action call
+        MetadataService.FlowConnector startConnector = new MetadataService.FlowConnector();
+        startConnector.targetReference = 'Capture_Historical_Changes';
+        startElement.connector = startConnector;
+        
+        flow.start = startElement;
+        
+        // Create action call to HistorianHelper.captureHistoricalChanges
+        MetadataService.FlowActionCall actionCall = new MetadataService.FlowActionCall();
+        actionCall.name = 'Capture_Historical_Changes';
+        actionCall.label = 'Capture Historical Changes';
+        actionCall.locationX = 300;
+        actionCall.locationY = 150;
+        actionCall.actionName = 'HistorianHelper';
+        actionCall.actionType = 'apex';
+        
+        // Set up input parameters for the HistorianHelper.captureHistoricalChanges method
+        List<MetadataService.FlowActionCallInputParameter> inputParams = new List<MetadataService.FlowActionCallInputParameter>();
+        
+        // targetRecordId parameter
+        MetadataService.FlowActionCallInputParameter recordIdParam = new MetadataService.FlowActionCallInputParameter();
+        recordIdParam.name = 'targetRecordId';
+        recordIdParam.value = new MetadataService.FlowElementReferenceOrValue();
+        recordIdParam.value.elementReference = '$Record.Id';
+        inputParams.add(recordIdParam);
+        
+        // targetSObjectApiName parameter
+        MetadataService.FlowActionCallInputParameter sObjectParam = new MetadataService.FlowActionCallInputParameter();
+        sObjectParam.name = 'targetSObjectApiName';
+        sObjectParam.value = new MetadataService.FlowElementReferenceOrValue();
+        sObjectParam.value.stringValue = objectApi;
+        inputParams.add(sObjectParam);
+        
+        actionCall.inputParameters = inputParams;
+        
+        flow.actionCalls = new List<MetadataService.FlowActionCall>{actionCall};
+        
+        // Set API version
+        flow.apiVersion = 61.0;
+        
+        return flow;
+    }
+    
+    /**
+     * Update or create deployment result record for Flow deployment tracking
+     */
+    private void updateFlowDeploymentResult(String flowName, String status, Integer errorCount, String message) {
         try {
-            // Look for existing deployment result record for this trigger
+            // Look for existing deployment result record for this flow
             List<Historian_Deploy_Result__c> existingResults = [
                 SELECT Id, Request_Id__c, Status__c, State__c
                 FROM Historian_Deploy_Result__c
-                WHERE Component_FullName__c = :triggerName
-                  AND Component_Type__c = 'ApexTrigger'
-                  AND Request_Id__c LIKE 'TRIGGER_DEPLOY_%'
+                WHERE Component_FullName__c = :flowName
+                  AND Component_Type__c = 'Flow'
+                  AND Request_Id__c LIKE 'FLOW_DEPLOY_%'
                 ORDER BY CreatedDate DESC
                 LIMIT 1
             ];
@@ -283,27 +324,27 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
                 result.Completed_On__c = System.now();
                 
                 update result;
-                System.debug('Updated existing deployment result record: ' + result.Id);
+                System.debug('Updated existing Flow deployment result record: ' + result.Id);
                 
             } else {
                 // Create new record
                 Historian_Deploy_Result__c result = new Historian_Deploy_Result__c(
-                    Request_Id__c = 'TRIGGER_DEPLOY_' + System.currentTimeMillis(),
+                    Request_Id__c = 'FLOW_DEPLOY_' + System.currentTimeMillis(),
                     Status__c = status,
                     State__c = (status == 'Succeeded') ? 'Completed' : 'Failed',
                     Error_Count__c = errorCount,
-                    Component_FullName__c = triggerName,
-                    Component_Type__c = 'ApexTrigger',
+                    Component_FullName__c = flowName,
+                    Component_Type__c = 'Flow',
                     Problem__c = message,
                     Completed_On__c = System.now()
                 );
                 
                 insert result;
-                System.debug('Created new deployment result record: ' + result.Id);
+                System.debug('Created new Flow deployment result record: ' + result.Id);
             }
             
         } catch (Exception ex) {
-            System.debug('Error updating trigger deployment result: ' + ex.getMessage());
+            System.debug('Error updating Flow deployment result: ' + ex.getMessage());
             // Don't throw - this is for tracking purposes only
         }
     }

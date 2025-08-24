@@ -81,20 +81,20 @@
                                                     <div class="slds-col slds-size_1-of-2">
                                                         <div class="slds-media slds-media_small">
                                                             <div class="slds-media__figure">
-                                                                <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                <template if:true={objectSummary.hasFlowDeployed}>
                                                                     <lightning-icon icon-name="utility:success" size="x-small" class="slds-icon-text-success"></lightning-icon>
                                                                 </template>
-                                                                <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                <template if:false={objectSummary.hasFlowDeployed}>
                                                                     <lightning-icon icon-name="utility:warning" size="x-small" class="slds-icon-text-warning"></lightning-icon>
                                                                 </template>
                                                             </div>
                                                             <div class="slds-media__body">
-                                                                <p class="slds-text-body_small slds-text-color_weak">Trigger</p>
+                                                                <p class="slds-text-body_small slds-text-color_weak">Flow</p>
                                                                 <p class="slds-text-body_small">
-                                                                    <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                    <template if:true={objectSummary.hasFlowDeployed}>
                                                                         Deployed
                                                                     </template>
-                                                                    <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                    <template if:false={objectSummary.hasFlowDeployed}>
                                                                         Pending
                                                                     </template>
                                                                 </p>
@@ -153,7 +153,7 @@
                                                     </p>
                                                 </div>
                                                 
-                                                <!-- Deploy Trigger Actions -->
+                                                <!-- Deploy Flow Actions -->
                                                 <div class="slds-m-top_small slds-border-top slds-p-top_x-small">
                                                     <div class="slds-grid slds-gutters_x-small">
                                                         <div class="slds-col slds-grow">
@@ -161,11 +161,11 @@
                                                                 variant="neutral" 
                                                                 label={objectSummary.deployButtonLabel}
                                                                 size="small"
-                                                                icon-name="utility:apex"
-                                                                onclick={handleDeployTrigger}
+                                                                icon-name="utility:flow"
+                                                                onclick={handleDeployFlow}
                                                                 data-object-api={objectSummary.objectApiName}
                                                                 disabled={objectSummary.deployInProgress}
-                                                                class="deploy-trigger-btn slds-truncate">
+                                                                class="deploy-flow-btn slds-truncate">
                                                             </lightning-button>
                                                         </div>
                                                         <template if:true={objectSummary.deployInProgress}>
