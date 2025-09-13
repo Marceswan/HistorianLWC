@@ -121,37 +121,22 @@
             <!-- Compact Cards Style -->
             <template if:true={isCompactCardsStyle}>
                 <template if:true={hasRecords}>
-                    <div class="slds-grid slds-wrap slds-gutters_small">
+                    <div class="compact-cards-container">
                         <template for:each={compactCardItems} for:item="item">
-                            <div key={item.id} class="slds-col slds-size_1-of-1">
-                                <article class="slds-card slds-card_boundary slds-m-bottom_small">
-                                    <div class="slds-card__body slds-card__body_inner">
-                                        <div class="slds-media">
-                                            <div class="slds-media__figure">
-                                                <lightning-icon icon-name="utility:change" 
-                                                               size="small" 
-                                                               class="slds-icon-text-default">
-                                                </lightning-icon>
-                                            </div>
-                                            <div class="slds-media__body">
-                                                <h2 class="slds-card__header-title slds-text-heading_small slds-m-bottom_x-small">
-                                                    {item.fieldName}
-                                                </h2>
-                                                <p class="slds-text-body_regular slds-m-bottom_small">
-                                                    {item.changeDescription}
-                                                </p>
-                                                <footer class="slds-card__footer">
-                                                    <div class="slds-text-body_small slds-text-color_weak">
-                                                        {item.formattedDate}
-                                                    </div>
-                                                    <div class="slds-text-body_small slds-text-color_weak">
-                                                        by <a href={item.createdByUrl} target="_blank" class="slds-text-link">{item.createdByName}</a>
-                                                    </div>
-                                                </footer>
-                                            </div>
-                                        </div>
+                            <div key={item.id} class="compact-card">
+                                <div class="compact-card-header">
+                                    <h3 class="compact-card-title"><strong>{item.fieldName}</strong></h3>
+                                </div>
+                                <div class="compact-card-body">
+                                    <div class="compact-card-row">
+                                        <span class="compact-card-label">Changed:</span>
+                                        <span class="compact-card-value"><strong>{item.changeDescription}</strong></span>
                                     </div>
-                                </article>
+                                </div>
+                                <div class="compact-card-footer">
+                                    <span class="compact-card-date">{item.formattedDate}</span>
+                                    <span class="compact-card-user">by <strong><a href={item.createdByUrl} target="_blank">{item.createdByName}</a></strong></span>
+                                </div>
                             </div>
                         </template>
                     </div>
