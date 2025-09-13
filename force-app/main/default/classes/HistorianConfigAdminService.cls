@@ -80,24 +80,24 @@ public with sharing class HistorianConfigAdminService {
             
             System.debug('Found configs for ' + configsByObject.size() + ' objects');
             
-            // Get real Flow deployment status using FlowDetectionService
-            Map<String, Boolean> flowStatusByObject = new Map<String, Boolean>();
+            // Get real Trigger deployment status using TriggerDetectionService
+            Map<String, Boolean> triggerStatusByObject = new Map<String, Boolean>();
             List<String> objectApiList = new List<String>(configsByObject.keySet());
-            
+
             try {
-                // Use batch Flow detection for better performance
-                flowStatusByObject = FlowDetectionService.getFlowStatusMap(objectApiList);
-                System.debug('Retrieved Flow status for ' + flowStatusByObject.size() + ' objects');
+                // Use batch Trigger detection for better performance
+                triggerStatusByObject = TriggerDetectionService.getTriggerStatusMap(objectApiList);
+                System.debug('Retrieved Trigger status for ' + triggerStatusByObject.size() + ' objects');
             } catch (Exception ex) {
-                System.debug('Error getting Flow status, falling back to individual checks: ' + ex.getMessage());
+                System.debug('Error getting Trigger status, falling back to individual checks: ' + ex.getMessage());
                 // Fallback to individual checks if batch fails
                 for (String objectApi : configsByObject.keySet()) {
                     try {
-                        Boolean flowExists = FlowDetectionService.isFlowDeployed(objectApi);
-                        flowStatusByObject.put(objectApi, flowExists);
+                        Boolean triggerExists = TriggerDetectionService.isTriggerDeployed(objectApi);
+                        triggerStatusByObject.put(objectApi, triggerExists);
                     } catch (Exception individualEx) {
-                        System.debug('Error checking Flow for ' + objectApi + ': ' + individualEx.getMessage());
-                        flowStatusByObject.put(objectApi, false); // Default to false on error
+                        System.debug('Error checking Trigger for ' + objectApi + ': ' + individualEx.getMessage());
+                        triggerStatusByObject.put(objectApi, false); // Default to false on error
                     }
                 }
             }
@@ -121,7 +121,7 @@ public with sharing class HistorianConfigAdminService {
                     }
                     
                     // Check if trigger is deployed
-                    summary.triggerDeployed = flowStatusByObject.get(objectApi) == true;
+                    summary.triggerDeployed = triggerStatusByObject.get(objectApi) == true;
                     
                     // Check if history object exists
                     String historyObjectApi = objectApi + '_Historian__c';
@@ -317,7 +317,13 @@ public with sharing class HistorianConfigAdminService {
         if (String.isBlank(input.label)) {
             input.label = input.configName;
         }
-        
+
+        // Set the historian object API name if not provided
+        if (String.isBlank(input.historyObjectApi)) {
+            input.historyObjectApi = input.objectApiName + '_Historian__c';
+            System.debug('Setting default historyObjectApi: ' + input.historyObjectApi);
+        }
+
         // Create Custom Metadata using native Salesforce Metadata API
         try {
             Metadata.CustomMetadata cmd = new Metadata.CustomMetadata();
@@ -665,9 +671,9 @@ public with sharing class HistorianConfigAdminService {
         try {
             // Build dynamic SOQL query for the history object
             String soql = 'SELECT Id, CreatedDate, CreatedBy.Name, CreatedBy.Id, ' +
-                         'Field_Name__c, Old_Value__c, New_Value__c, Parent_Record_Id__c ' +
+                         'Field_Changed_Api__c, Field_Changed_Label__c, Prior_Value__c, New_Value__c, Parent_Record__c ' +
                          'FROM ' + historyObjectName + ' ' +
-                         'WHERE Parent_Record_Id__c = :recordId ' +
+                         'WHERE Parent_Record__c = :recordId ' +
                          'ORDER BY CreatedDate DESC ' +
                          'LIMIT :limitValue';
             

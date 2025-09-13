@@ -87,7 +87,7 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
             historianApi + '.New_Value__c',
             historianApi + '.Complete_New_Value__c',
             historianApi + '.Changed_On__c',
-            historianApi + '.Changed_By__c',
+            // Changed_By__c not needed - use standard CreatedBy field
             historianApi + '.Parent_Record__c'
         };
         try {
@@ -119,10 +119,13 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
                 f.type_x = 'LongTextArea'; f.label = 'Complete New Value'; f.length = 32768; f.visibleLines = 3;
             } else if (fullName.endsWith('.Changed_On__c')) {
                 f.type_x = 'DateTime'; f.label = 'Changed On';
-            } else if (fullName.endsWith('.Changed_By__c')) {
-                f.type_x = 'Lookup'; f.referenceTo = 'User'; f.label = 'Changed By'; f.relationshipName = 'Changed_By';
             } else if (fullName.endsWith('.Parent_Record__c')) {
-                f.type_x = 'Lookup'; f.referenceTo = objectApi; f.label = 'Parent Record'; f.relationshipName = 'Parent_Record';
+                f.type_x = 'Lookup';
+                f.label = 'Parent Record';
+                f.relationshipName = 'Parent_Record';
+                f.referenceTo = objectApi;
+                f.required = false;
+                f.deleteConstraint = 'SetNull';
             }
             toCreate.add(f);
         }
@@ -130,7 +133,7 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
         System.debug('Total metadata components to create: ' + toCreate.size());
         if (!toCreate.isEmpty()) {
             // createMetadata returns SaveResult[] in this mdapi version
-            try { 
+            try {
                 System.debug('About to create ' + toCreate.size() + ' metadata components');
                 for (MetadataService.Metadata meta : toCreate) {
                     if (meta instanceof MetadataService.CustomObject) {
@@ -141,10 +144,20 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
                         System.debug('Creating CustomField: ' + fld.fullName + ', type: ' + fld.type_x);
                     }
                 }
-                
-                MetadataService.SaveResult[] results = service.createMetadata(toCreate); 
+
+                MetadataService.SaveResult[] results = service.createMetadata(toCreate);
                 String resultCount = (results != null ? String.valueOf(results.size()) : 'null');
                 System.debug('CreateMetadata call completed, results: ' + resultCount);
+
+                // After creating the object, update profile permissions and CMDT
+                if (!exists && results != null && results.size() > 0 && results[0].success) {
+                    System.debug('Object created successfully, now updating profile permissions');
+                    updateProfilePermissions(historianApi, service);
+
+                    // Update the CMDT configuration with the historian object API name
+                    System.debug('Updating CMDT configuration with historian object API name');
+                    updateConfigurationWithHistorianObject(historianApi);
+                }
                 
                 if (results != null) {
                     for (MetadataService.SaveResult result : results) {
@@ -169,10 +182,103 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
             }
         } else {
             System.debug('No metadata components to create - toCreate list is empty');
+
+            // If the object already exists but CMDT might not be updated, update it now
+            if (exists) {
+                System.debug('Object already exists, ensuring CMDT is updated');
+                updateConfigurationWithHistorianObject(historianApi);
+            }
         }
 
         // Create Record-Triggered Flow for the source object to track changes
         createHistorianFlow(service);
+    }
+
+    /**
+     * Update profile permissions to grant Read/Create/Edit access to the Historian object for all profiles
+     */
+    private void updateProfilePermissions(String historianObjectApi, MetadataService.MetadataPort service) {
+        System.debug('Updating profile permissions for: ' + historianObjectApi);
+
+        try {
+            // Get all profile names from the org
+            List<Profile> profiles = [SELECT Name FROM Profile];
+            List<String> profileNames = new List<String>();
+
+            for (Profile p : profiles) {
+                profileNames.add(p.Name);
+            }
+
+            System.debug('Found ' + profileNames.size() + ' profiles to update');
+
+            // Read existing profile metadata
+            MetadataService.IReadResult profileReadResult = service.readMetadata('Profile', profileNames);
+
+            if (profileReadResult != null && profileReadResult.getRecords() != null) {
+                List<MetadataService.Profile> profilesToUpdate = new List<MetadataService.Profile>();
+
+                for (MetadataService.Metadata record : profileReadResult.getRecords()) {
+                    if (record != null && record instanceof MetadataService.Profile) {
+                        MetadataService.Profile profile = (MetadataService.Profile) record;
+
+                        // Check if object permissions already exist
+                        Boolean hasPermissions = false;
+                        if (profile.objectPermissions != null) {
+                            for (MetadataService.ProfileObjectPermissions objPerm : profile.objectPermissions) {
+                                if (objPerm.object_x == historianObjectApi) {
+                                    hasPermissions = true;
+                                    // Update existing permissions
+                                    objPerm.allowRead = true;
+                                    objPerm.allowCreate = true;
+                                    objPerm.allowEdit = true;
+                                    objPerm.allowDelete = false; // Keep delete restricted
+                                    objPerm.modifyAllRecords = false;
+                                    objPerm.viewAllRecords = false;
+                                    break;
+                                }
+                            }
+                        } else {
+                            profile.objectPermissions = new List<MetadataService.ProfileObjectPermissions>();
+                        }
+
+                        // Add permissions if they don't exist
+                        if (!hasPermissions) {
+                            MetadataService.ProfileObjectPermissions newPerm = new MetadataService.ProfileObjectPermissions();
+                            newPerm.object_x = historianObjectApi;
+                            newPerm.allowRead = true;
+                            newPerm.allowCreate = true;
+                            newPerm.allowEdit = true;
+                            newPerm.allowDelete = false; // Keep delete restricted
+                            newPerm.modifyAllRecords = false;
+                            newPerm.viewAllRecords = false;
+                            profile.objectPermissions.add(newPerm);
+                        }
+
+                        profilesToUpdate.add(profile);
+                    }
+                }
+
+                // Update all profiles with new permissions
+                if (!profilesToUpdate.isEmpty()) {
+                    System.debug('Updating ' + profilesToUpdate.size() + ' profiles with Historian object permissions');
+                    MetadataService.SaveResult[] updateResults = service.updateMetadata(profilesToUpdate);
+
+                    if (updateResults != null) {
+                        for (MetadataService.SaveResult result : updateResults) {
+                            if (result.success) {
+                                System.debug('Successfully updated profile: ' + result.fullName);
+                            } else if (result.errors != null && result.errors.size() > 0) {
+                                System.debug('Error updating profile: ' + result.errors[0].message);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.debug('Error updating profile permissions: ' + e.getMessage());
+            // Don't fail the entire job if profile updates fail
+            // The object is created, permissions can be updated manually if needed
+        }
     }
 
     private void createHistorianFlow(MetadataService.MetadataPort service) {
@@ -247,6 +353,56 @@ public with sharing class HistorianMetadataJob implements Queueable, Database.Al
         } catch (Exception ex) {
             System.debug('Error updating Flow deployment result: ' + ex.getMessage());
             // Don't throw - this is for tracking purposes only
+        }
+    }
+
+    /**
+     * Update the CMDT configuration with the historian object API name
+     */
+    private void updateConfigurationWithHistorianObject(String historianObjectApi) {
+        try {
+            System.debug('Updating CMDT configuration with historian object: ' + historianObjectApi);
+
+            // Find the configuration for this object
+            List<Historian_Config__mdt> configs = [
+                SELECT DeveloperName, History_Object_Api__c
+                FROM Historian_Config__mdt
+                WHERE Object_Api_Name__c = :objectApi
+                LIMIT 1
+            ];
+
+            if (!configs.isEmpty()) {
+                Historian_Config__mdt config = configs[0];
+
+                // Only update if the field is not already set
+                if (String.isBlank(config.History_Object_Api__c)) {
+                    System.debug('Updating History_Object_Api__c for config: ' + config.DeveloperName);
+
+                    // Create metadata container for CMDT update
+                    Metadata.CustomMetadata cmd = new Metadata.CustomMetadata();
+                    cmd.fullName = 'Historian_Config__mdt.' + config.DeveloperName;
+                    cmd.values = new List<Metadata.CustomMetadataValue>();
+
+                    Metadata.CustomMetadataValue historyObjectValue = new Metadata.CustomMetadataValue();
+                    historyObjectValue.field = 'History_Object_Api__c';
+                    historyObjectValue.value = historianObjectApi;
+                    cmd.values.add(historyObjectValue);
+
+                    Metadata.DeployContainer dc = new Metadata.DeployContainer();
+                    dc.addMetadata(cmd);
+
+                    // Deploy the CMDT update
+                    Id deploymentId = Metadata.Operations.enqueueDeployment(dc, null);
+                    System.debug('CMDT update enqueued with deployment ID: ' + deploymentId);
+                } else {
+                    System.debug('History_Object_Api__c already set to: ' + config.History_Object_Api__c);
+                }
+            } else {
+                System.debug('No configuration found for object: ' + objectApi);
+            }
+        } catch (Exception ex) {
+            System.debug('Error updating CMDT with historian object: ' + ex.getMessage());
+            // Don't fail the entire job if CMDT update fails
         }
     }
 

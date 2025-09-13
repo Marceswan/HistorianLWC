@@ -177,7 +177,7 @@ private class HistorianMetadataJobTest {
             expectedHistorianApi + '.New_Value__c',
             expectedHistorianApi + '.Complete_New_Value__c',
             expectedHistorianApi + '.Changed_On__c',
-            expectedHistorianApi + '.Changed_By__c',
+            // Changed_By__c not needed - use standard CreatedBy field
             expectedHistorianApi + '.Parent_Record__c'
         };
         

@@ -7,11 +7,24 @@ import getHistorianRecords from '@salesforce/apex/HistorianConfigAdminService.ge
 export default class HistorianRecordDisplay extends LightningElement {
     @api recordId;
     @api objectApiName;
-    
+
     @track historianConfig;
     @track historianRecords = [];
     @track loading = true;
     @track error;
+    @track expandedItems = new Set(); // Track which items are expanded
+
+    connectedCallback() {
+        console.log('=== HistorianRecordDisplay Connected ===');
+        console.log('Initial recordId:', this.recordId);
+        console.log('Initial objectApiName:', this.objectApiName);
+
+        // If we already have both values, load immediately
+        if (this.recordId && this.objectApiName) {
+            console.log('Both recordId and objectApiName available, loading config immediately');
+            this.loadHistorianConfig();
+        }
+    }
     
     // Timeline columns for datatable style
     @track timelineColumns = [
@@ -24,7 +37,14 @@ export default class HistorianRecordDisplay extends LightningElement {
 
     @wire(getRecord, { recordId: '$recordId', fields: ['Id'] })
     recordData({ error, data }) {
+        console.log('=== HistorianRecordDisplay Wire Service ===');
+        console.log('recordId:', this.recordId);
+        console.log('objectApiName:', this.objectApiName);
+        console.log('Wire data:', data);
+        console.log('Wire error:', error);
+
         if (data) {
+            console.log('Record data received, loading historian config...');
             this.loadHistorianConfig();
         } else if (error) {
             this.handleError('Error loading record data', error);
@@ -32,24 +52,40 @@ export default class HistorianRecordDisplay extends LightningElement {
     }
 
     async loadHistorianConfig() {
+        console.log('=== loadHistorianConfig ===');
         try {
             this.loading = true;
             this.error = null;
-            
+
+            console.log('Calling getHistorianConfig with objectApiName:', this.objectApiName);
+
             // Get the historian configuration for this object
-            const config = await getHistorianConfig({ 
-                objectApiName: this.objectApiName 
+            const config = await getHistorianConfig({
+                objectApiName: this.objectApiName
             });
-            
+
+            console.log('Config received:', JSON.stringify(config, null, 2));
+
             if (!config) {
+                console.error('No historian configuration found');
                 this.error = `No historian configuration found for ${this.objectApiName}`;
                 return;
             }
-            
+
+            // Check if historyObjectApi is populated
+            if (!config.historyObjectApi) {
+                console.error('History Object API is not set in configuration');
+                this.error = `History Object API is not configured for ${this.objectApiName}. Please ensure the historian object has been created.`;
+                return;
+            }
+
             this.historianConfig = config;
+            console.log('Historian config set with history object:', config.historyObjectApi);
+            console.log('Loading records...');
             await this.loadHistorianRecords();
-            
+
         } catch (error) {
+            console.error('Error in loadHistorianConfig:', error);
             this.handleError('Error loading historian configuration', error);
         } finally {
             this.loading = false;
@@ -57,32 +93,60 @@ export default class HistorianRecordDisplay extends LightningElement {
     }
 
     async loadHistorianRecords() {
+        console.log('=== loadHistorianRecords ===');
         try {
             if (!this.historianConfig || !this.recordId) {
+                console.log('Missing config or recordId:', {
+                    config: this.historianConfig,
+                    recordId: this.recordId
+                });
                 return;
             }
-            
-            const records = await getHistorianRecords({
+
+            const params = {
                 recordId: this.recordId,
-                configName: this.historianConfig.configName,
+                configName: this.historianConfig.configName || this.historianConfig.developerName,
                 objectApiName: this.objectApiName,
                 maxResults: 100
-            });
-            
+            };
+            console.log('Calling getHistorianRecords with params:', params);
+            console.log('Full historian config:', this.historianConfig);
+
+            const records = await getHistorianRecords(params);
+
+            console.log('Raw records received:', records);
+            console.log('Number of records:', records ? records.length : 0);
+
+            // Log first record details if available
+            if (records && records.length > 0) {
+                console.log('First record details:', records[0]);
+                console.log('Field names in first record:', Object.keys(records[0]));
+            }
+
             // Transform records for display
-            this.historianRecords = (records || []).map(record => ({
-                id: record.Id,
-                createdDate: record.CreatedDate,
-                fieldName: record.Field_Name__c || 'Unknown Field',
-                oldValue: this.formatValue(record.Old_Value__c),
-                newValue: this.formatValue(record.New_Value__c),
-                createdByName: record.CreatedBy?.Name || 'Unknown User',
-                createdById: record.CreatedBy?.Id,
-                recordId: record.Parent_Record_Id__c,
-                changeType: this.determineChangeType(record.Old_Value__c, record.New_Value__c)
-            }));
-            
+            this.historianRecords = (records || []).map(record => {
+                const createdById = record.CreatedBy?.Id;
+                const transformed = {
+                    id: record.Id,
+                    createdDate: record.CreatedDate,
+                    fieldName: record.Field_Changed_Label__c || record.Field_Changed_Api__c || 'Unknown Field',
+                    oldValue: this.formatValue(record.Prior_Value__c),
+                    newValue: this.formatValue(record.New_Value__c),
+                    createdByName: record.CreatedBy?.Name || 'Unknown User',
+                    createdById: createdById,
+                    createdByUrl: createdById ? `/lightning/r/User/${createdById}/view` : '#',
+                    recordId: record.Parent_Record__c,
+                    changeType: this.determineChangeType(record.Prior_Value__c, record.New_Value__c)
+                };
+                console.log('Transformed record:', transformed);
+                return transformed;
+            });
+
+            console.log('Final historianRecords:', this.historianRecords);
+            console.log('hasRecords:', this.hasRecords);
+
         } catch (error) {
+            console.error('Error in loadHistorianRecords:', error);
             this.handleError('Error loading historian records', error);
         }
     }
@@ -105,11 +169,16 @@ export default class HistorianRecordDisplay extends LightningElement {
     }
 
     get displayStyle() {
-        return this.historianConfig?.trackingStyle || 'Timeline';
+        const style = this.historianConfig?.trackingStyle || 'Timeline';
+        console.log('Display style:', style);
+        return style;
     }
 
     get isTimelineStyle() {
-        return this.displayStyle === 'Timeline';
+        const isTimeline = this.displayStyle === 'Timeline';
+        console.log('Is timeline style?', isTimeline);
+        console.log('Has records?', this.hasRecords);
+        return isTimeline;
     }
 
     get isDatatableStyle() {
@@ -161,13 +230,21 @@ export default class HistorianRecordDisplay extends LightningElement {
     // Timeline-specific getters
     get timelineItems() {
         if (!this.isTimelineStyle || !this.hasRecords) return [];
-        
-        return this.historianRecords.map(record => ({
+
+        const items = this.historianRecords.map((record, index) => ({
             ...record,
             formattedDate: this.formatDate(record.createdDate),
             iconName: this.getChangeIcon(record.changeType),
-            iconVariant: this.getChangeVariant(record.changeType)
+            iconVariant: this.getChangeVariant(record.changeType),
+            createdByUrl: record.createdByUrl,
+            hasOldValue: record.oldValue && record.oldValue !== '--',
+            isExpanded: this.expandedItems.has(record.id),
+            isFirst: index === 0
         }));
+
+        console.log('Timeline items generated:', items);
+        console.log('First timeline item detail:', items[0]);
+        return items;
     }
 
     formatDate(dateValue) {
@@ -197,22 +274,47 @@ export default class HistorianRecordDisplay extends LightningElement {
     // Compact Cards-specific getters
     get compactCardItems() {
         if (!this.isCompactCardsStyle || !this.hasRecords) return [];
-        
+
         return this.historianRecords.map(record => ({
             ...record,
             formattedDate: this.formatDate(record.createdDate),
             hasChange: record.oldValue !== record.newValue,
-            changeDescription: this.getChangeDescription(record)
+            changeDescription: this.getChangeDescription(record),
+            createdByUrl: record.createdByUrl
         }));
     }
 
     getChangeDescription(record) {
+        let description;
         if (record.changeType === 'created') {
-            return `${record.fieldName} was set to "${record.newValue}"`;
+            description = `${record.fieldName} was set to "${record.newValue}"`;
+        } else if (record.changeType === 'deleted') {
+            description = `${record.fieldName} was cleared (was "${record.oldValue}")`;
+        } else {
+            description = `${record.fieldName} changed from "${record.oldValue}" to "${record.newValue}"`;
         }
-        if (record.changeType === 'deleted') {
-            return `${record.fieldName} was cleared (was "${record.oldValue}")`;
+
+        // Truncate to 255 characters
+        if (description.length > 255) {
+            description = description.substring(0, 252) + '...';
         }
-        return `${record.fieldName} changed from "${record.oldValue}" to "${record.newValue}"`;
+        return description;
+    }
+
+    // Handle expand/collapse of timeline items
+    handleToggleExpand(event) {
+        // Don't toggle if clicking on a link
+        if (event.target.tagName === 'A') {
+            return;
+        }
+
+        const itemId = event.currentTarget.dataset.itemId;
+        if (this.expandedItems.has(itemId)) {
+            this.expandedItems.delete(itemId);
+        } else {
+            this.expandedItems.add(itemId);
+        }
+        // Force re-render
+        this.expandedItems = new Set(this.expandedItems);
     }
 }

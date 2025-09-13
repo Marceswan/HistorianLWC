@@ -1,3 +1,10 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 09-13-2025
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
 <template>
     <lightning-card title={cardTitle} icon-name="utility:clock">
         <div class="slds-p-around_medium">
@@ -48,47 +55,53 @@
             <!-- Timeline Style -->
             <template if:true={isTimelineStyle}>
                 <template if:true={hasRecords}>
-                    <div class="slds-timeline">
+                    <ol class="timeline">
                         <template for:each={timelineItems} for:item="item">
-                            <div key={item.id} class="slds-timeline__item_expandable slds-timeline__item_call">
-                                <span class="slds-assistive-text">Task</span>
-                                <div class="slds-media">
-                                    <div class="slds-media__figure">
-                                        <div class="slds-timeline__icon">
-                                            <div class="slds-timeline__icon_container">
-                                                <lightning-icon icon-name={item.iconName} 
-                                                               size="x-small" 
-                                                               variant={item.iconVariant}>
-                                                </lightning-icon>
-                                            </div>
-                                        </div>
+                            <li key={item.id} class="timeline-item" data-is-first={item.isFirst}>
+                                <span class="timeline-item-icon filled-icon">
+                                    <lightning-icon icon-name={item.iconName}
+                                                   size="x-small"
+                                                   alternative-text={item.changeType}>
+                                    </lightning-icon>
+                                </span>
+                                <div class="timeline-item-wrapper">
+                                    <div class="timeline-item-description"
+                                         data-item-id={item.id}
+                                         onclick={handleToggleExpand}
+                                         style="cursor: pointer;">
+                                        <span class="expand-icon">
+                                            <template if:true={item.isExpanded}>
+                                                ▼
+                                            </template>
+                                            <template if:false={item.isExpanded}>
+                                                ▶
+                                            </template>
+                                        </span>
+                                        <span>
+                                            <a href={item.createdByUrl} target="_blank">{item.createdByName}</a> changed
+                                            <strong> {item.fieldName}</strong> on
+                                            <time datetime={item.createdDate}> {item.formattedDate}</time>
+                                        </span>
                                     </div>
-                                    <div class="slds-media__body">
-                                        <div class="slds-media slds-media_timeline slds-timeline__media_call">
-                                            <div class="slds-media__body">
-                                                <h3 class="slds-timeline__title">
-                                                    <strong>{item.fieldName}</strong>
-                                                </h3>
-                                                <p class="slds-timeline__text">
-                                                    <template if:true={item.oldValue}>
-                                                        Changed from <strong>{item.oldValue}</strong> to <strong>{item.newValue}</strong>
-                                                    </template>
-                                                    <template if:false={item.oldValue}>
-                                                        Set to <strong>{item.newValue}</strong>
-                                                    </template>
+                                    <template if:true={item.isExpanded}>
+                                        <div class="comment">
+                                            <template if:true={item.hasOldValue}>
+                                                <p>
+                                                    <strong>Previous value:</strong> {item.oldValue}<br/>
+                                                    <strong>New value:</strong> {item.newValue}
                                                 </p>
-                                                <h3 class="slds-timeline__date">
-                                                    <span class="slds-text-body_small slds-text-color_weak">
-                                                        {item.formattedDate} by {item.createdByName}
-                                                    </span>
-                                                </h3>
-                                            </div>
+                                            </template>
+                                            <template if:false={item.hasOldValue}>
+                                                <p>
+                                                    <strong>Set to:</strong> {item.newValue}
+                                                </p>
+                                            </template>
                                         </div>
-                                    </div>
+                                    </template>
                                 </div>
-                            </div>
+                            </li>
                         </template>
-                    </div>
+                    </ol>
                 </template>
             </template>
 
@@ -110,8 +123,8 @@
                 <template if:true={hasRecords}>
                     <div class="slds-grid slds-wrap slds-gutters_small">
                         <template for:each={compactCardItems} for:item="item">
-                            <div key={item.id} class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3">
-                                <article class="slds-card slds-card_boundary">
+                            <div key={item.id} class="slds-col slds-size_1-of-1">
+                                <article class="slds-card slds-card_boundary slds-m-bottom_small">
                                     <div class="slds-card__body slds-card__body_inner">
                                         <div class="slds-media">
                                             <div class="slds-media__figure">
@@ -132,7 +145,7 @@
                                                         {item.formattedDate}
                                                     </div>
                                                     <div class="slds-text-body_small slds-text-color_weak">
-                                                        by {item.createdByName}
+                                                        by <a href={item.createdByUrl} target="_blank" class="slds-text-link">{item.createdByName}</a>
                                                     </div>
                                                 </footer>
                                             </div>

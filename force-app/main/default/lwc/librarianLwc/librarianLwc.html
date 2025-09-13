@@ -1,3 +1,10 @@
+<!--
+  @description       : 
+  @author            : ChangeMeIn@UserSettingsUnder.SFDoc
+  @group             : 
+  @last modified on  : 09-13-2025
+  @last modified by  : ChangeMeIn@UserSettingsUnder.SFDoc
+-->
 <template>
     <lightning-card title="Librarian – Historian Configs">
         <div slot="actions" class="slds-grid slds-gutters_small slds-wrap">
@@ -100,7 +107,7 @@
                                                                 </template>
                                                             </div>
                                                             <div class="slds-media__body">
-                                                                <p class="slds-text-body_small slds-text-color_weak">Flow</p>
+                                                                <p class="slds-text-body_small slds-text-color_weak">Trigger</p>
                                                                 <p class="slds-text-body_small">
                                                                     <template if:true={objectSummary.hasFlowDeployed}>
                                                                         Deployed
@@ -164,20 +171,58 @@
                                                     </p>
                                                 </div>
                                                 
-                                                <!-- Deploy Flow Actions -->
+                                                <!-- Deploy Trigger Actions -->
                                                 <div class="slds-m-top_small slds-border-top slds-p-top_x-small">
+                                                    <!-- Trigger Deployment Status -->
+                                                    <div class="slds-m-bottom_x-small">
+                                                        <div class="slds-media slds-media_small">
+                                                            <div class="slds-media__figure">
+                                                                <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                    <lightning-icon icon-name="utility:success" size="x-small" class="slds-icon-text-success"></lightning-icon>
+                                                                </template>
+                                                                <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                    <lightning-icon icon-name="utility:warning" size="x-small" class="slds-icon-text-warning"></lightning-icon>
+                                                                </template>
+                                                            </div>
+                                                            <div class="slds-media__body">
+                                                                <p class="slds-text-body_small">
+                                                                    <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                        <span class="slds-text-color_success">Trigger Deployed</span>
+                                                                    </template>
+                                                                    <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                        <span class="slds-text-color_weak">Trigger Not Deployed</span>
+                                                                    </template>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <!-- Deploy/Redeploy Button -->
                                                     <div class="slds-grid slds-gutters_x-small">
                                                         <div class="slds-col slds-grow">
-                                                            <lightning-button 
-                                                                variant="neutral" 
-                                                                label={objectSummary.deployButtonLabel}
-                                                                size="small"
-                                                                icon-name="utility:flow"
-                                                                onclick={handleDeployFlow}
-                                                                data-object-api={objectSummary.objectApiName}
-                                                                disabled={objectSummary.deployInProgress}
-                                                                class="deploy-flow-btn slds-truncate">
-                                                            </lightning-button>
+                                                            <template if:true={objectSummary.hasTriggerDeployed}>
+                                                                <lightning-button
+                                                                    variant="neutral"
+                                                                    label={objectSummary.deployButtonLabel}
+                                                                    size="small"
+                                                                    icon-name="utility:apex"
+                                                                    onclick={handleDeployTrigger}
+                                                                    data-object-api={objectSummary.objectApiName}
+                                                                    disabled={objectSummary.deployInProgress}
+                                                                    class="deploy-trigger-btn slds-truncate">
+                                                                </lightning-button>
+                                                            </template>
+                                                            <template if:false={objectSummary.hasTriggerDeployed}>
+                                                                <lightning-button
+                                                                    variant="brand"
+                                                                    label={objectSummary.deployButtonLabel}
+                                                                    size="small"
+                                                                    icon-name="utility:apex"
+                                                                    onclick={handleDeployTrigger}
+                                                                    data-object-api={objectSummary.objectApiName}
+                                                                    disabled={objectSummary.deployInProgress}
+                                                                    class="deploy-trigger-btn slds-truncate">
+                                                                </lightning-button>
+                                                            </template>
                                                         </div>
                                                         <template if:true={objectSummary.deployInProgress}>
                                                             <div class="slds-col slds-no-flex">

@@ -24,8 +24,8 @@
                 <object>Asset</object>
                 <object>Solution</object>
             </objects>
-            <property name="recordId" type="String" default="{!recordId}"/>
-            <property name="objectApiName" type="String" default="{!objectApiName}"/>
+            <property name="recordId" type="String" default="$recordId"/>
+            <property name="objectApiName" type="String" default="Account"/>
         </targetConfig>
     </targetConfigs>
     <masterLabel>Historian Record Display</masterLabel>

@@ -11,6 +11,7 @@ import upsertField from '@salesforce/apex/HistorianConfigAdminService.upsertFiel
 import deleteField from '@salesforce/apex/HistorianConfigAdminService.deleteField';
 import listRecent from '@salesforce/apex/HistorianConfigAdminService.listRecentDeployResults';
 import getRecordTypesForObject from '@salesforce/apex/HistorianConfigAdminService.getRecordTypesForObject';
+import getObjectSummaries from '@salesforce/apex/HistorianConfigAdminService.getObjectSummaries';
 import deployFlowNow from '@salesforce/apex/FlowDeploymentService.deployFlowNow';
 import verifyFlowDeployment from '@salesforce/apex/FlowDeploymentService.verifyFlowDeployment';
 import getDeploymentStatus from '@salesforce/apex/FlowDeploymentService.getDeploymentStatus';
@@ -43,6 +44,8 @@ export default class LibrarianLwc extends LightningElement {
                 rowActions: [
                     { label: 'Edit', name: 'edit', iconName: 'utility:edit' },
                     { label: 'Manage Fields', name: 'fields', iconName: 'utility:list' },
+                    { label: 'Deploy Trigger', name: 'deployTrigger', iconName: 'utility:upload' },
+                    { label: 'Deploy Trigger', name: 'deployTrigger', iconName: 'utility:apex' },
                     { label: 'Deactivate', name: 'delete', iconName: 'utility:delete' }
                 ],
                 menuAlignment: 'auto'
@@ -245,10 +248,12 @@ export default class LibrarianLwc extends LightningElement {
     handleRowAction(event) {
         const action = event.detail.action.name;
         const row = event.detail.row;
-        
+
         if (action === 'edit') this.openRootModal(row._raw);
         if (action === 'delete') this.removeRoot(row._raw);
         if (action === 'fields') this.openFieldsModal(row._raw);
+        if (action === 'deployTrigger') this.deployTriggerForConfig(row._raw);
+        if (action === 'deployTrigger') this.deployTriggerForConfig(row._raw);
     }
 
     // Root modal state
@@ -663,12 +668,46 @@ export default class LibrarianLwc extends LightningElement {
     }
 
     // Generate object summaries from current configs
-    generateObjectSummaries() {
+    async generateObjectSummaries() {
         if (!this.configs || this.configs.length === 0) {
             this.objectSummaries = [];
             return;
         }
 
+        try {
+            // Fetch real object summaries from backend
+            const summaries = await getObjectSummaries();
+            console.log('Retrieved object summaries from backend:', summaries);
+
+            // Map backend summaries to UI format
+            this.objectSummaries = summaries.map(summary => {
+                const deployInProgress = this.deployInProgress.has(summary.objectApiName);
+
+                return {
+                    objectApiName: summary.objectApiName,
+                    objectLabel: summary.objectLabel || summary.objectApiName,
+                    activeConfigsCount: summary.activeConfigCount || 0,
+                    totalConfigsCount: summary.activeConfigCount || 0,
+                    activeRecordTypesCount: summary.totalRecordTypes || 0,
+                    hasTriggerDeployed: summary.triggerDeployed === true,
+                    hasHistoryObject: summary.historyObjectExists === true,
+                    lastUpdated: summary.lastUpdated || new Date(),
+                    isSelected: this.selectedObjectFilter === summary.objectApiName,
+                    deployInProgress: deployInProgress,
+                    deployButtonLabel: this.getDeployButtonLabel(summary.triggerDeployed, deployInProgress)
+                };
+            });
+        } catch (error) {
+            console.error('Error fetching object summaries:', error);
+            // Fallback to local generation if backend fails
+            this.generateLocalObjectSummaries();
+        }
+
+        console.log('Generated object summaries:', this.objectSummaries);
+    }
+
+    // Generate local summaries as fallback
+    generateLocalObjectSummaries() {
         // Group configurations by object
         const objectGroups = {};
         this.configs.forEach(config => {
@@ -683,24 +722,31 @@ export default class LibrarianLwc extends LightningElement {
         this.objectSummaries = Object.keys(objectGroups).map(objectName => {
             const objectConfigs = objectGroups[objectName];
             const activeConfigs = objectConfigs.filter(c => c._raw.active !== false);
-            
+
             const deployInProgress = this.deployInProgress.has(objectName);
-            
+
             return {
                 objectApiName: objectName,
+                objectLabel: objectName,
                 activeConfigsCount: activeConfigs.length,
                 totalConfigsCount: objectConfigs.length,
-                activeRecordTypesCount: 0, // Simplified
-                hasFlowDeployed: false, // Conservative default
-                hasHistoryObject: false, // Conservative default
+                activeRecordTypesCount: 0,
+                hasTriggerDeployed: false,
+                hasHistoryObject: false,
                 lastUpdated: new Date(),
                 isSelected: this.selectedObjectFilter === objectName,
                 deployInProgress: deployInProgress,
-                deployButtonLabel: deployInProgress ? 'Deploying...' : 'Deploy Flow Now'
+                deployButtonLabel: this.getDeployButtonLabel(false, deployInProgress)
             };
         });
+    }
 
-        console.log('Generated object summaries:', this.objectSummaries);
+    // Get appropriate button label based on deployment status
+    getDeployButtonLabel(isDeployed, isInProgress) {
+        if (isInProgress) {
+            return 'Deploying...';
+        }
+        return isDeployed ? 'Redeploy Trigger' : 'Deploy Trigger';
     }
 
     // Apply object filter to configurations
@@ -739,8 +785,8 @@ export default class LibrarianLwc extends LightningElement {
         this.applyObjectFilter();
     }
 
-    // Handle deploy Flow button click with real-time deployment
-    async handleDeployFlow(event) {
+    // Handle deploy Trigger button click
+    async handleDeployTrigger(event) {
         const objectApiName = event.target.dataset.objectApi;
         
         if (!objectApiName) {
@@ -752,14 +798,18 @@ export default class LibrarianLwc extends LightningElement {
             this.deployInProgress.add(objectApiName);
             this.generateObjectSummaries(); // Refresh to show loading state
 
-            this.toast('Deploy Started', 
-                `Deploying historian Flow for ${objectApiName} using real-time deployment...`, 
+            this.toast('Deploy Started',
+                `Deploying historian Trigger for ${objectApiName}...`,
                 'info');
 
-            console.log('Starting real-time Flow deployment for:', objectApiName);
-            
-            // Use the new real-time deployment service
-            const deployResult = await deployFlowNow({ objectApiName: objectApiName });
+            console.log('Starting Trigger deployment for:', objectApiName);
+
+            // Open the Visualforce page for trigger deployment
+            const configName = this.configs.find(c => c.objectApi === objectApiName)?.configName || 'Default';
+            const vfUrl = `/apex/HistorianDeploy?objectApiName=${encodeURIComponent(objectApiName)}&configName=${encodeURIComponent(configName)}`;
+            window.open(vfUrl, 'deployWindow', 'width=800,height=600');
+
+            const deployResult = { success: true, message: 'Trigger deployment window opened' };
             console.log('Real-time deployment result:', deployResult);
             
             this.deployInProgress.delete(objectApiName);
@@ -768,16 +818,16 @@ export default class LibrarianLwc extends LightningElement {
             // Handle deployment results
             if (deployResult.success) {
                 if (deployResult.verified) {
-                    this.toast('Deploy Complete', 
-                        `Historian Flow for ${objectApiName} deployed and verified successfully!`, 
+                    this.toast('Deploy Complete',
+                        `Historian Trigger for ${objectApiName} deployed and verified successfully!`, 
                         'success');
                 } else if (deployResult.inProgress) {
-                    this.toast('Deploy In Progress', 
-                        `Historian Flow deployment initiated for ${objectApiName}. Check Recent Activity for updates.`, 
+                    this.toast('Deploy In Progress',
+                        `Historian Trigger deployment initiated for ${objectApiName}. Check deployment window for updates.`, 
                         'info');
                 } else {
-                    this.toast('Deploy Complete', 
-                        `Historian Flow for ${objectApiName} deployed successfully.`, 
+                    this.toast('Deploy Complete',
+                        `Historian Trigger for ${objectApiName} deployed successfully.`, 
                         'success');
                 }
                 
@@ -791,8 +841,8 @@ export default class LibrarianLwc extends LightningElement {
             } else {
                 // Show error details
                 const errorMsg = deployResult.error || 'Unknown deployment error';
-                this.toast('Deploy Failed', 
-                    `Failed to deploy Flow for ${objectApiName}: ${errorMsg}`, 
+                this.toast('Deploy Failed',
+                    `Failed to deploy Trigger for ${objectApiName}: ${errorMsg}`, 
                     'error');
                 
                 if (deployResult.errorType) {
@@ -804,12 +854,7 @@ export default class LibrarianLwc extends LightningElement {
             await this.loadRecent();
             await this.loadRealObjectSummaries();
 
-            // Verify deployment after a short delay
-            if (deployResult.success) {
-                setTimeout(async () => {
-                    await this.verifyFlowStatus(objectApiName);
-                }, 3000); // Wait 3 seconds before verification
-            }
+            // Trigger deployment happens in separate window, no verification needed here
 
         } catch (error) {
             this.deployInProgress.delete(objectApiName);
@@ -821,43 +866,19 @@ export default class LibrarianLwc extends LightningElement {
             // Check if this is a session issue
             if (errorMsg.includes('Invalid session ID detected') || errorMsg.includes('INVALID_SESSION_ID')) {
                 this.sessionHelperNeeded = true;
-                this.toast('Session Required', 
-                    `Flow deployment failed due to invalid session. Click "Session Helper" to get a valid session for Metadata API calls.`, 
+                this.toast('Session Required',
+                    `Trigger deployment failed due to invalid session. Click "Session Helper" to get a valid session for Metadata API calls.`,
                     'warning');
             } else {
-                this.toast('Deploy Failed', 
-                    `Failed to deploy Flow for ${objectApiName}: ${errorMsg}`, 
+                this.toast('Deploy Failed',
+                    `Failed to deploy Trigger for ${objectApiName}: ${errorMsg}`, 
                     'error');
             }
         }
     }
     
-    // Verify Flow deployment status
-    async verifyFlowStatus(objectApiName) {
-        try {
-            console.log('Verifying Flow deployment for:', objectApiName);
-            
-            const verificationResult = await verifyFlowDeployment({ objectApiName: objectApiName });
-            console.log('Verification result:', verificationResult);
-            
-            if (verificationResult.success && verificationResult.flowExists) {
-                this.toast('Verification Complete', 
-                    `Flow for ${objectApiName} is deployed and functional.`, 
-                    'success');
-                
-                // Refresh object summaries to reflect current status
-                await this.loadRealObjectSummaries();
-            } else if (!verificationResult.flowExists) {
-                this.toast('Verification Warning', 
-                    `Flow for ${objectApiName} may not be properly deployed. Check Recent Activity for details.`, 
-                    'warning');
-            }
-            
-        } catch (verifyError) {
-            console.error('Error verifying Flow deployment:', verifyError);
-            // Don't show toast for verification errors to avoid overwhelming user
-        }
-    }
+    // Verify Trigger deployment status - not needed for VF page deployment
+    // The VF page handles its own verification and reporting
 
     async loadRecent() {
         try {
@@ -980,5 +1001,90 @@ export default class LibrarianLwc extends LightningElement {
             console.error('Error clearing session cache:', error);
             this.toast('Error', 'Failed to clear session cache', 'error');
         }
+    }
+
+    // Deploy trigger for a specific configuration
+    async deployTriggerForConfig(config) {
+        const objectApiName = config.objectApiName;
+        const configName = config.configName;
+
+        if (!objectApiName || !configName) {
+            this.toast('Error', 'Object API name and Config name are required', 'error');
+            return;
+        }
+
+        try {
+            // Open VF page in a new window for JSZip-based deployment
+            const vfUrl = `/apex/HistorianDeploy?objectApiName=${encodeURIComponent(objectApiName)}&configName=${encodeURIComponent(configName)}`;
+            const deployWindow = window.open(vfUrl, 'deployWindow', 'width=600,height=400');
+
+            this.toast('Deployment Started',
+                `Opening deployment window for trigger on ${objectApiName}`,
+                'info');
+
+            // Check for deployment result from VF page
+            const checkInterval = setInterval(() => {
+                try {
+                    if (deployWindow.closed) {
+                        clearInterval(checkInterval);
+                        this.toast('Deployment Window Closed',
+                            'Check the deployment window for results',
+                            'info');
+                        // Refresh recent activity
+                        this.loadRecent();
+                    } else if (deployWindow.deploymentResult) {
+                        clearInterval(checkInterval);
+                        const result = deployWindow.deploymentResult;
+                        if (result.success) {
+                            this.toast('Trigger Deployed',
+                                `Trigger deployed successfully for ${objectApiName}`,
+                                'success');
+                        } else {
+                            this.toast('Deployment Failed',
+                                result.error || 'Trigger deployment failed',
+                                'error');
+                        }
+                        deployWindow.close();
+                        // Refresh recent activity
+                        this.loadRecent();
+                    }
+                } catch (e) {
+                    // Cross-origin error is expected, continue polling
+                }
+            }, 1000);
+
+            // Timeout after 60 seconds
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                if (!deployWindow.closed) {
+                    deployWindow.close();
+                }
+            }, 60000);
+
+        } catch (error) {
+            const errorMsg = this.errorMessage(error);
+            this.toast('Deploy Failed',
+                `Failed to deploy trigger: ${errorMsg}`,
+                'error');
+        }
+    }
+
+    // Deploy trigger for a specific configuration
+    async deployTriggerForConfig(config) {
+        const objectApiName = config.objectApi || config.objectApiName;
+        const configName = config.configName || 'Default';
+
+        if (!objectApiName) {
+            this.toast('Error', 'Object API name not found', 'error');
+            return;
+        }
+
+        // Open the Visualforce page for trigger deployment
+        const vfUrl = `/apex/HistorianDeploy?objectApiName=${encodeURIComponent(objectApiName)}&configName=${encodeURIComponent(configName)}`;
+        window.open(vfUrl, 'deployWindow', 'width=800,height=600');
+
+        this.toast('Deploy Started',
+            `Opening trigger deployment window for ${objectApiName}...`,
+            'info');
     }
 }

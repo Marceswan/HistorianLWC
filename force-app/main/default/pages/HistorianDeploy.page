@@ -1,0 +1,310 @@
+<apex:page controller="HistorianTriggerDeployer" showHeader="false" standardStylesheets="false" applyHtmlTag="false">
+    <html>
+    <head>
+        <title>Historian Trigger Deployment</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                margin: 20px;
+                background: #f3f3f3;
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            h1 {
+                color: #333;
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+            .status {
+                padding: 10px;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+            .status.info {
+                background: #d1ecf1;
+                color: #0c5460;
+                border: 1px solid #bee5eb;
+            }
+            .status.success {
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+            .status.error {
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+            .status.warning {
+                background: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeeba;
+            }
+            .details {
+                margin-top: 15px;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 12px;
+                white-space: pre-wrap;
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            .spinner {
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid #3498db;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 20px auto;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            button {
+                background: #0070d2;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                margin-top: 10px;
+            }
+            button:hover {
+                background: #005bb5;
+            }
+            button:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Historian Trigger Deployment</h1>
+            <div id="status" class="status info">Initializing...</div>
+            <div id="spinner" class="spinner" style="display:none;"></div>
+            <div id="details" class="details" style="display:none;"></div>
+            <button id="retryBtn" onclick="retry()" style="display:none;">Retry Deployment</button>
+            <button id="closeBtn" onclick="window.close()" style="display:none;">Close Window</button>
+        </div>
+
+        <script>
+            const objectApiName = '{!$CurrentPage.parameters.objectApiName}';
+            const configName = '{!$CurrentPage.parameters.configName}';
+            let deploymentId = null;
+
+            function updateStatus(message, type) {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = message;
+                statusEl.className = 'status ' + type;
+            }
+
+            function showDetails(content) {
+                const detailsEl = document.getElementById('details');
+                detailsEl.textContent = content;
+                detailsEl.style.display = 'block';
+            }
+
+            function showSpinner(show) {
+                document.getElementById('spinner').style.display = show ? 'block' : 'none';
+            }
+
+            async function deployTrigger() {
+                try {
+                    showSpinner(true);
+                    updateStatus('Preparing deployment package...', 'info');
+
+                    // Get package components from Apex
+                    const packageData = await new Promise((resolve, reject) => {
+                        Visualforce.remoting.Manager.invokeAction(
+                            '{!$RemoteAction.HistorianTriggerDeployer.prepareDeploymentPackage}',
+                            objectApiName,
+                            configName,
+                            (result, event) => {
+                                if (event.status) {
+                                    resolve(result);
+                                } else {
+                                    reject(new Error(event.message || 'Failed to prepare package'));
+                                }
+                            },
+                            { escape: false }
+                        );
+                    });
+
+                    updateStatus('Creating deployment package...', 'info');
+
+                    // Create ZIP file using JSZip
+                    const zip = new JSZip();
+
+                    // Add package.xml
+                    zip.file('package.xml', packageData.packageXml);
+
+                    // Add trigger
+                    const triggersFolder = zip.folder('triggers');
+                    triggersFolder.file(packageData.triggerName + '.trigger', packageData.triggerSource);
+                    triggersFolder.file(packageData.triggerName + '.trigger-meta.xml', packageData.triggerMetadata);
+
+                    // Add test class
+                    const classesFolder = zip.folder('classes');
+                    classesFolder.file(packageData.testClassName + '.cls', packageData.testClassSource);
+                    classesFolder.file(packageData.testClassName + '.cls-meta.xml', packageData.testClassMetadata);
+
+                    // Generate ZIP as base64
+                    const zipData = await zip.generateAsync({ type: 'base64' });
+
+                    updateStatus('Deploying trigger to Salesforce...', 'info');
+
+                    // Deploy via Apex RemoteAction
+                    deploymentId = await new Promise((resolve, reject) => {
+                        Visualforce.remoting.Manager.invokeAction(
+                            '{!$RemoteAction.HistorianTriggerDeployer.deployZip}',
+                            zipData,
+                            objectApiName,
+                            configName,
+                            (result, event) => {
+                                if (event.status) {
+                                    resolve(result);
+                                } else {
+                                    reject(new Error(event.message || 'Deployment failed'));
+                                }
+                            },
+                            { escape: false, timeout: 120000 }
+                        );
+                    });
+
+                    updateStatus('Deployment started. ID: ' + deploymentId, 'info');
+                    showDetails('Deployment ID: ' + deploymentId + '\nObject: ' + objectApiName + '\nConfig: ' + configName);
+
+                    // Start polling for status
+                    pollDeploymentStatus();
+
+                } catch (error) {
+                    showSpinner(false);
+                    updateStatus('Deployment failed: ' + error.message, 'error');
+                    showDetails(error.stack || error.message);
+                    document.getElementById('retryBtn').style.display = 'inline-block';
+                    document.getElementById('closeBtn').style.display = 'inline-block';
+
+                    // Cannot report back to parent due to cross-origin restrictions
+                    // User will see the error in this window
+                }
+            }
+
+            async function pollDeploymentStatus() {
+                try {
+                    const status = await new Promise((resolve, reject) => {
+                        Visualforce.remoting.Manager.invokeAction(
+                            '{!$RemoteAction.HistorianTriggerDeployer.checkDeploymentStatus}',
+                            deploymentId,
+                            (result, event) => {
+                                if (event.status) {
+                                    resolve(result);
+                                } else {
+                                    reject(new Error(event.message || 'Status check failed'));
+                                }
+                            },
+                            { escape: false }
+                        );
+                    });
+
+                    if (status.done) {
+                        showSpinner(false);
+                        if (status.status === 'Succeeded') {
+                            updateStatus('Deployment successful!', 'success');
+                            let details = 'Components deployed: ' + status.numberComponentsDeployed + '/' + status.numberComponentsTotal;
+
+                            if (status.testResults && status.testResults.length > 0) {
+                                details += '\n\nTest Results:\n';
+                                status.testResults.forEach(test => {
+                                    details += test.outcome + ': ' + test.className + '.' + test.methodName;
+                                    if (test.message) {
+                                        details += '\n  ' + test.message;
+                                    }
+                                    details += '\n';
+                                });
+                            }
+
+                            showDetails(details);
+                            document.getElementById('closeBtn').style.display = 'inline-block';
+
+                            // Cannot report back to parent due to cross-origin restrictions
+                            // Success is shown in this window
+
+                            // Auto-close after 3 seconds on success
+                            setTimeout(() => {
+                                window.close();
+                            }, 3000);
+                        } else {
+                            updateStatus('Deployment failed', 'error');
+                            let details = 'Status: ' + status.status;
+
+                            if (status.componentErrors && status.componentErrors.length > 0) {
+                                details += '\n\nComponent Errors:\n';
+                                status.componentErrors.forEach(error => {
+                                    details += '- ' + error + '\n';
+                                });
+                            }
+
+                            if (status.testResults && status.testResults.length > 0) {
+                                const failures = status.testResults.filter(t => t.outcome === 'Fail');
+                                if (failures.length > 0) {
+                                    details += '\n\nTest Failures:\n';
+                                    failures.forEach(test => {
+                                        details += test.className + '.' + test.methodName + ': ' + test.message + '\n';
+                                    });
+                                }
+                            }
+
+                            showDetails(details);
+                            document.getElementById('retryBtn').style.display = 'inline-block';
+                            document.getElementById('closeBtn').style.display = 'inline-block';
+
+                            // Cannot report back to parent due to cross-origin restrictions
+                            // Failure is shown in this window
+                        }
+                    } else {
+                        // Continue polling
+                        updateStatus('Deployment in progress... (' + status.numberComponentsDeployed + '/' + status.numberComponentsTotal + ' components)', 'info');
+                        setTimeout(pollDeploymentStatus, 2000);
+                    }
+                } catch (error) {
+                    showSpinner(false);
+                    updateStatus('Status check failed: ' + error.message, 'warning');
+                    document.getElementById('retryBtn').style.display = 'inline-block';
+                    document.getElementById('closeBtn').style.display = 'inline-block';
+                }
+            }
+
+            function retry() {
+                document.getElementById('retryBtn').style.display = 'none';
+                document.getElementById('closeBtn').style.display = 'none';
+                document.getElementById('details').style.display = 'none';
+                deployTrigger();
+            }
+
+            // Start deployment when page loads
+            window.onload = () => {
+                if (!objectApiName || !configName) {
+                    updateStatus('Missing required parameters: objectApiName and configName', 'error');
+                    document.getElementById('closeBtn').style.display = 'inline-block';
+                } else {
+                    deployTrigger();
+                }
+            };
+        </script>
+    </body>
+    </html>
+</apex:page>

@@ -203,7 +203,7 @@ public with sharing class HistorianChangeService {
             historianRecord.put('Field_Changed_Api__c', fieldApi);
             historianRecord.put('Field_Changed_Label__c', fieldLabel);
             historianRecord.put('Changed_On__c', System.now());
-            historianRecord.put('Changed_By__c', UserInfo.getUserId());
+            // Changed_By is tracked automatically via CreatedById standard field
             
             // Set value fields with truncation handling
             String oldValueStr = (oldValue != null) ? String.valueOf(oldValue) : '';

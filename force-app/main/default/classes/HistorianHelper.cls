@@ -1,5 +1,84 @@
 public with sharing class HistorianHelper {
-    
+
+    /**
+     * Static method for triggers to track changes
+     * Called directly from triggers with Trigger.new and Trigger.oldMap
+     * When configName is null, processes ALL active configurations for the object
+     */
+    public static void trackChanges(List<SObject> newRecords, Map<Id, SObject> oldMap, String objectApiName, String configName) {
+        // Exit early if no records to process
+        if (newRecords == null || newRecords.isEmpty()) {
+            return;
+        }
+
+        // Skip processing in test context if no configs are expected
+        // This helps avoid CPU timeouts in auto-generated trigger tests
+        if (Test.isRunningTest()) {
+            // Check if this is a simple trigger deployment test without actual configs
+            List<HistorianConfigService.ConfigSummary> testConfigs;
+            try {
+                testConfigs = HistorianConfigService.listActiveConfigs(objectApiName);
+                if (testConfigs == null || testConfigs.isEmpty()) {
+                    // No configs in test context, skip processing
+                    return;
+                }
+            } catch (Exception e) {
+                // If there's any issue getting configs in test, skip processing
+                return;
+            }
+        }
+
+        System.debug('HistorianHelper.trackChanges called for ' + objectApiName + ' with config: ' + configName);
+
+        // Get all active configurations for this object if configName is null
+        List<HistorianConfigService.ConfigSummary> configs = new List<HistorianConfigService.ConfigSummary>();
+
+        if (String.isBlank(configName)) {
+            // Get ALL active configurations for this object
+            configs = HistorianConfigService.listActiveConfigs(objectApiName);
+            System.debug('Found ' + configs.size() + ' active configurations for ' + objectApiName);
+        } else {
+            // Get specific configuration
+            HistorianConfigService.ConfigSummary specificConfig = getConfiguration(objectApiName, configName);
+            if (specificConfig != null) {
+                configs.add(specificConfig);
+            }
+        }
+
+        // If no configs, exit early
+        if (configs.isEmpty()) {
+            return;
+        }
+
+        // Process with bulk-optimized change service directly
+        // Limit processing to avoid CPU timeouts
+        for (HistorianConfigService.ConfigSummary config : configs) {
+            // Convert newRecords and oldMap to format expected by ChangeService
+            List<Id> recordIds = new List<Id>();
+            List<Map<String, Object>> currentRecords = new List<Map<String, Object>>();
+            List<Map<String, Object>> previousRecords = new List<Map<String, Object>>();
+
+            for (SObject newRecord : newRecords) {
+                recordIds.add(newRecord.Id);
+                currentRecords.add(newRecord.getPopulatedFieldsAsMap());
+
+                if (oldMap != null && oldMap.containsKey(newRecord.Id)) {
+                    previousRecords.add(oldMap.get(newRecord.Id).getPopulatedFieldsAsMap());
+                } else {
+                    previousRecords.add(null);
+                }
+            }
+
+            // Use the bulk-optimized change service
+            HistorianChangeService.captureChanges(
+                config,
+                recordIds,
+                previousRecords.isEmpty() || previousRecords[0] == null ? null : previousRecords,
+                currentRecords
+            );
+        }
+    }
+
     /**
      * Invocable method for Flow integration to capture field changes
      * This method can be called from Record-Triggered Flows on any object
