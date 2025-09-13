@@ -1,5 +1,5 @@
 /* Timeline Container */
-.timeline {
+ol.timeline {
     width: 100%;
     max-width: 100%;
     display: flex;
@@ -15,7 +15,7 @@
 }
 
 /* Hide line before first item */
-.timeline::before {
+ol.timeline::before {
     content: '';
     position: absolute;
     left: -2px;
