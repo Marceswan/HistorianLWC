@@ -4,7 +4,6 @@
 - **Package Name:** HistorianLWC
 - **Package ID:** 0HoWs0000001zMPKAY
 - **Namespace:** (none - unmanaged package)
-- **Dev Hub:** GSO-Org (marc-zbcx@force.com)
 
 ## Version History
 
