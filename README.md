@@ -52,27 +52,46 @@ The system provisions what it needs on demand: historian objects, change‑captu
 
 See `docs/architecture.md` for a deeper component map and data model.
 
-## Setup
-**🚀 Fully Automated Setup - No Manual Configuration Required!**
+## Installation
 
-1) Deploy to an org (scratch org example):
+### Option 1: Install from Package (Recommended)
+Install the latest HistorianLWC package directly into your org:
+
+```bash
+# Production/Developer Edition
+sf package install --package 04tWs000000bDazIAE --target-org YOUR_ORG_ALIAS --wait 10
+
+# Sandbox
+sf package install --package 04tWs000000bDazIAE --target-org YOUR_ORG_ALIAS --wait 10 --installation-key ""
+```
+
+**Installation URL for System Administrators:**
+```
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tWs000000bDazIAE
+```
+
+### Option 2: Deploy from Source
+Deploy directly from source code:
+
+1) Clone the repository:
    ```bash
-   sf org create scratch -f config/project-scratch-def.json -a historian
-   sf project deploy start -o historian
+   git clone https://github.com/YOUR_USERNAME/HistorianLWC.git
+   cd HistorianLWC
    ```
 
-2) **That's it!** The system automatically handles:
-   - Remote Site Settings deployment for mdapi connectivity
-   - Historian object creation when you save configurations
-   - Record-Triggered Flow deployment for automatic change tracking
+2) Deploy to your org:
+   ```bash
+   sf org login web -a myOrg
+   sf project deploy start -o myOrg
+   ```
 
-3) Verify connectivity (optional): Use `remotesitepage` and `metadatabrowser` Visualforce pages for troubleshooting
+### Post-Installation Setup
+After installation, the system automatically handles:
+- Remote Site Settings deployment for mdapi connectivity
+- Historian object creation when you save configurations
+- Record-Triggered Flow deployment for automatic change tracking
 
-Alternative deployment to a sandbox or dev org:
-```bash
-sf org login web -a myOrg
-sf project deploy start -o myOrg
-```
+Verify connectivity (optional): Use the `metadatabrowser` Visualforce page for troubleshooting
 
 ## Usage
 

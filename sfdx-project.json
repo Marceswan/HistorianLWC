@@ -1,16 +1,19 @@
 {
   "packageDirectories": [
     {
+      "versionName": "ver 0.1",
+      "versionNumber": "0.1.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "HistorianLWC",
-      "versionName": "ver 0.1",
-      "versionNumber": "0.1.0.NEXT"
+      "versionDescription": ""
     }
   ],
   "name": "HistorianLWC",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "64.0"
+  "sourceApiVersion": "64.0",
+  "packageAliases": {
+    "HistorianLWC": "0HoWs0000001zMPKAY"
+  }
 }
-
